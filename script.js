@@ -195,21 +195,28 @@ function executeDownload(file) {
 // --- SHARE FUNCTIONALITY ---
 
 async function executeShare(note) {
-    const singleNoteFile = 
-
-createNoteFile(note); 
+    const singleNoteFile = createNoteFile(note); 
     
     if (!singleNoteFile) {
         alert("Failed to create file for sharing.");
         return;
     }
     
+    // Create a better preview of the note content
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = note.content;
+    const plainText = tempDiv.textContent || tempDiv.innerText || "";
+    const preview = plainText.length > 150 
+        ? plainText.substring(0, 150).trim() + '...' 
+        : plainText;
+    
     const shareData = {
-        title: `UniPortal Note: ${note.title}`,
-        text: `Sharing the note: ${note.title}`,
+        title: `📝 ${note.title}`,
+        text: `UniPortal Note: ${note.title}\n\n${preview}\n\n📅 ${note.date}\n\nShared from UniPortal Student Dashboard`,
         files: [singleNoteFile],
     };
     
+    // Try file sharing first
     if (navigator.canShare && navigator.canShare(shareData)) {
         try {
             closeModal('shareNotesModal');
@@ -217,26 +224,37 @@ createNoteFile(note);
             console.log(`Successfully shared note: ${note.id}`);
         } catch (error) {
             if (error.name !== 'AbortError') {
-
                 console.error('Error sharing file:', error);
                 alert("Failed to open share dialog.");
             }
         }
     } else {
+        // Fallback: text-only share without file
         closeModal('shareNotesModal');
-        alert(`File sharing is not supported. Attempting text-only share.`);
         
         try {
-            await navigator.share({
-                title: shareData.title,
-                text: shareData.text,
-                url: window.location.href
-            });
+            const textOnlyShare = {
+                title: `📝 ${note.title}`,
+                text: `UniPortal Note: ${note.title}\n\n${plainText}\n\n📅 ${note.date}\n\nShared from UniPortal`,
+            };
+            
+            await navigator.share(textOnlyShare);
+            console.log('Shared text-only version');
         } catch (err) {
-            console.error("Text-only fallback failed:", err);
+            if (err.name !== 'AbortError') {
+                console.error("Share failed:", err);
+                // Final fallback: copy to clipboard
+                try {
+                    await navigator.clipboard.writeText(
+                        `${note.title}\n\n${plainText}\n\n${note.date}`
+                    );
+                    alert("✅ Note copied to clipboard! You can now paste it anywhere.");
+                } catch (clipErr) {
+                    alert("Sharing not supported on this device. Use the download feature instead.");
+                }
+            }
         }
     }
-
 }
 
 function populateNoteList() {
@@ -352,15 +370,18 @@ const HOUR_SLOTS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
 
 const getInitialState = () => {
     const storedState = localStorage.getItem('uniportalState');
-
     if (storedState) {
         return JSON.parse(storedState);
     }
     return {
-        userName: "Student User",
+        userName: "New User",
+        studentId: "S00123456",
+        major: "Computer Science",
+        email: "user@unistident.edu",
+        currentSemester: 1,
         theme: 'light',
         currentSection: 'overview',
-        notifications: [], // Start with empty notifications
+        notifications: [],
         courses: [],
         semesters: [
             { name: "Fall 2023", gpa: 3.2, totalPoints: 48, totalUnits: 15, courses: [] },
@@ -379,6 +400,40 @@ let currentEditingNoteId = null;
 
 function saveState() {
     localStorage.setItem('uniportalState', JSON.stringify(state));
+}
+  // Show save indicator (optional but nice UX)
+    showSaveIndicator();
+
+
+function showSaveIndicator() {
+    // Check if indicator already exists
+    let indicator = document.getElementById('save-indicator');
+    
+    if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.id = 'save-indicator';
+        indicator.innerHTML = '<i class="fas fa-check"></i> Saved';
+        indicator.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--color-success);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            z-index: 9999;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        `;
+        document.body.appendChild(indicator);
+    }
+    
+    // Trigger animation
+    setTimeout(() => indicator.style.opacity = '1', 10);
+    setTimeout(() => indicator.style.opacity = '0', 1500);
 }
 
 // --- MODAL FUNCTIONS ---
@@ -1354,43 +1409,63 @@ function loadProfileData() {
     const studentIdInput = document.getElementById('student-id');
     const majorInput = document.getElementById('major');
     const emailInput = document.getElementById('email');
+    const currentSemesterInput = document.getElementById('current-semester');
     
-    if (fullNameInput) fullNameInput.value = 
-
-state.userName;
-    if (studentIdInput) studentIdInput.value = "S00123456";
-    if (majorInput) majorInput.value = "Computer Science";
-    if (emailInput) emailInput.value = "user@university.edu";
+    if (fullNameInput) fullNameInput.value = state.userName;
+    if (studentIdInput) studentIdInput.value = state.studentId || "S00123456";
+    if (majorInput) majorInput.value = state.major || "Computer Science";
+    if (emailInput) emailInput.value = state.email || "user@university.edu";
+    if (currentSemesterInput) currentSemesterInput.value = state.currentSemester || 1;
     
     const changePassBtn = document.getElementById('change-password-btn');
     const twoFactorBtn = document.getElementById('two-factor-btn');
     if (changePassBtn) changePassBtn.onclick = () => alert("Security Action: Redirecting to secure portal. (Mock)");
     if (twoFactorBtn) twoFactorBtn.onclick = () => alert("Security Action: Two-Factor Authentication settings. (Mock)");
 }
-
 function handleProfileUpdate(event) {
     event.preventDefault();
+    
     const fullNameInput = document.getElementById('full-name');
+    const studentIdInput = document.getElementById('student-id');
+    const majorInput = document.getElementById('major');
+    const emailInput = document.getElementById('email');
+    const currentSemesterInput = document.getElementById('current-semester');
     
     if (!fullNameInput) return;
     
+    // Save all profile fields to state
     const newName = fullNameInput.value.trim();
+    const newMajor = majorInput ? majorInput.value.trim() : state.major || "Computer Science";
+    const newSemester = currentSemesterInput ? parseInt(currentSemesterInput.value) : state.currentSemester || 1;
+    const newStudentId = studentIdInput ? studentIdInput.value.trim() : state.studentId || "S00123456";
+    const newEmail = emailInput ? emailInput.value.trim() : state.email || "user@university.edu";
     
+    // Update state with all fields
     if (newName && newName !== state.userName) {
         updateUserNameDisplay(newName);
-        alert(`Name updated to ${newName}!`);
     }
     
+    state.major = newMajor;
+    state.currentSemester = newSemester;
+    state.studentId = newStudentId;
+    state.email = newEmail;
+    
+    saveState();
+    
+    // Visual feedback
     const saveButton = event.target.querySelector('.btn-accent');
     if (saveButton) {
-        saveButton.textContent = 'Changes Saved!';
-
+        const originalText = saveButton.textContent;
+        saveButton.textContent = '✓ Changes Saved!';
+        saveButton.style.backgroundColor = 'var(--color-success)';
+        
         setTimeout(() => {
-            saveButton.textContent = 'Save Changes';
-        }, 1500);
+            saveButton.textContent = originalText;
+            saveButton.style.backgroundColor = '';
+        }, 2000);
     }
-
-    saveState();
+    
+    alert(`✅ Profile updated successfully!\n\nMajor: ${newMajor}\nSemester: ${newSemester}`);
 }
 
 function handleLogout() {
@@ -1804,4 +1879,4 @@ function importData(file) {
         }
     };
     reader.readAsText(file);
-}
+                }
