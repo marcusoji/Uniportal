@@ -1916,3 +1916,12 @@ content: 'Mon'; }
 #notification-list li:hover {
     background-color: var(--color-sidebar-hover);
 }
+#save-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#save-indicator i {
+    font-size: 1rem;
+}
