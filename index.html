@@ -1,0 +1,450 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User's Student Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2563eb">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+</head>
+<body>
+    <div id="loading-overlay">
+        <div class="spinner-container">
+
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Loading UniPortal...</p>
+        </div>
+    </div>
+    
+    <div class="dashboard-container main-content-hidden" id="main-app-container">
+    
+        <aside class="sidebar">
+            <div class="logo-area">
+                <i class="fas fa-graduation-cap"></i>
+                <span>UniPortal</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#overview" class="nav-item active" data-section="overview"><i class="fas fa-chart-line"></i> Dashboard Overview</a>
+                <a href="#gpa-calc" class="nav-item" data-section="gpa-calc"><i class="fas fa-calculator"></i> GPA 
+
+Calculator</a>
+                <a href="#cgpa-calc" class="nav-item" data-section="cgpa-calc"><i class="fas fa-signal"></i> CGPA Calculator</a>
+                <a href="#timetable" class="nav-item" data-section="timetable"><i class="fas fa-calendar-alt"></i> Timetable</a>
+                <a href="#notes" class="nav-item" data-section="notes"><i class="fas fa-clipboard"></i> Notes Section</a>
+                <a href="#countdown" class="nav-item" data-section="countdown"><i class="fas fa-stopwatch"></i> Exam Countdown</a>
+                <a href="#profile" class="nav-item" data-section="profile"><i class="fas fa-user-circle"></i> Profile</a>
+            </nav>
+           <div class="sidebar-footer">
+                    <!--<a href="#" class="nav-item" 
+
+id="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>-->
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-navbar">
+                <div class="welcome-display">
+                    <h3 id="welcome-user-display">Welcome, Student User</h3>
+                    <p>Ready to check your progress?</p>
+                </div>
+                <div class="user-controls">
+                    <div class="notification-container">
+                        <i class="fas fa-bell" id="notification-bell"></i>
+                        <span class="notification-badge hidden" id="notification-badge">0</span>
+                        <div class="notification-
+
+dropdown" id="notification-dropdown">
+                            <h4>Notifications</h4>
+                            <ul id="notification-list"></ul>
+                            <p class="no-notifications">All caught up!</p>
+                            <button id="clear-notifications-btn" class="btn btn-small btn-secondary" style="width: 100%; margin-top: 10px;">
+        <i class="fas fa-check"></i> Clear All
+    </button>
+                        </div>
+                    </div>
+                    <button id="theme-toggle" class="theme-toggle">
+                        <i class="fas fa-sun"></i>
+                    </button>
+                    
+                    <div class="user-info">
+                        <span id="user-display-name">User</span>
+
+                        <div class="avatar-upload-container">
+                            <input type="file" id="avatar-input-nav" accept="image/*" class="avatar-file-input">
+                            <label for="avatar-input-nav">
+                                <img id="user-avatar-nav" src="https://via.placeholder.com/40/0077c2/ffffff?text=U" alt="Avatar" class="user-avatar">
+                                <i class="fas fa-camera avatar-edit-icon" title="Change Avatar"></i>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <section id="overview" class="content-section active">
+                <h2>Dashboard Overview</h2>
+                <div class="overview-grid">
+
+                    <div class="summary-card total-courses">
+                        <i class="fas fa-book-open"></i>
+                        <h3>Total Courses</h3>
+                        <p id="total-courses-count">0</p>
+                    </div>
+                    <div class="summary-card current-gpa">
+                        <i class="fas fa-chart-line"></i>
+                        <h3>Current GPA</h3>
+                        <p id="current-gpa-display">N/A</p>
+                    </div>
+                    <div class="summary-card cumulative-cgpa">
+                        <i class="fas fa-trophy"></i>
+                        <h3>Cumulative CGPA</h3>
+                        <p id="cumulative-cgpa-display">N/A</p>
+
+                    </div>
+                    <div class="summary-card upcoming-class">
+                        <i class="fas fa-clock"></i>
+                        <h3>Upcoming Class</h3>
+                        <p id="upcoming-class-display">Nothing Today</p>
+                    </div>
+                    <div class="summary-card days-to-exam">
+                        <i class="fas fa-calendar-day"></i>
+                        <h3>Days to Next Exam</h3>
+                        <p id="days-to-exam-display">N/A</p>
+                    </div>
+                </div>
+                <div class="quote-card">
+                    <p id="motivational-quote">"Discipline is the bridge between goals and success."</p>
+                </div>
+
+                <div class="dashboard-chart-card">
+                    <h3>GPA Progress</h3>
+                    <div class="chart-placeholder">
+                        <p>Line Graph Placeholder (Requires a small library like Chart.js or complex custom drawing)</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="gpa-calc" class="content-section">
+                <h2>GPA Calculator</h2>
+                <div class="card gpa-input-card">
+                    <h3>Semester Courses</h3>
+                    <table class="course-input-table">
+                        <thead>
+                            <tr>
+                                <th>Course Code</th>
+                                <th>Units</th>
+
+                                <th>Grade (A-F)</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="gpa-course-list"></tbody>
+                    </table>
+                    <button class="btn btn-primary" id="add-course-btn">
+                        <i class="fas fa-plus"></i> Add Course
+                    </button>
+                    <div class="gpa-actions">
+                        <button class="btn btn-accent" id="calculate-gpa-btn">Calculate GPA</button>
+                        <button class="btn btn-save" id="save-semester-btn">Save Semester</button>
+                    </div>
+                </div>
+                <div class="gpa-result-card card">
+
+                    <h3>Semester Result</h3>
+                    <p>Numeric GPA: <strong id="gpa-result">N/A</strong></p>
+                    <p>Academic Standing: <span id="academic-standing">Pending</span></p>
+                    <p class="motivational-feedback" id="gpa-feedback">Enter your courses and grades to begin.</p>
+                </div>
+            </section>
+
+            <section id="cgpa-calc" class="content-section">
+                <h2>CGPA Calculator</h2>
+                <div class="card">
+                    <h3>Previous Semesters</h3>
+                    <div id="cgpa-semester-list">
+                        <p class="no-data">No semesters saved yet. Calculate and save a GPA first.</p>
+                    </div>
+                    <button id="add-manual-sem-
+
+btn" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Add Manual Semester
+                    </button>
+                    <div class="gpa-actions">
+                        <button class="btn btn-accent" id="calculate-cgpa-btn">Calculate CGPA</button>
+                    </div>
+                </div>
+                <div class="cgpa-result-card card">
+                    <h3>Cumulative Result</h3>
+                    <div class="progress-circle-container">
+                        <div class="progress-circle" id="cgpa-progress-circle">
+                            <span class="cgpa-value" id="cgpa-result-display">0.00</span>
+                        </div>
+                    </div>
+                    <p>Total Units: <strong 
+
+id="cgpa-total-units">0</strong></p>
+                    <p>Academic Standing: <span id="cgpa-academic-standing">Pending</span></p>
+                </div>
+            </section>
+
+            <section id="timetable" class="content-section">
+                <h2>Weekly Timetable</h2>
+                <div class="card timetable-editor-card">
+                    <h3>Add/Edit Class</h3>
+                    <form id="add-class-form">
+                        <input type="text" id="class-code" placeholder="Course Code (e.g., MTH 201)" required>
+                        <input type="text" id="class-subject" placeholder="Subject Name (e.g., Algebra)" required>
+                        <select id="class-day" required>
+
+                            <option value="">Select Day</option>
+                            <option value="Monday">Monday</option>
+                            <option value="Tuesday">Tuesday</option>
+                            <option value="Wednesday">Wednesday</option>
+                            <option value="Thursday">Thursday</option>
+                            <option value="Friday">Friday</option>
+                        </select>
+                        <input type="time" id="class-time" required>
+                        <button type="submit" class="btn btn-primary">Save Class</button>
+                    </form>
+                </div>
+                <div class="card timetable-display-card">
+
+                    <h3>Your Schedule</h3>
+                    <table class="timetable-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Monday</th>
+                                <th>Tuesday</th>
+                                <th>Wednesday</th>
+                                <th>Thursday</th>
+                                <th>Friday</th>
+                            </tr>
+                        </thead>
+                        <tbody id="timetable-body"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="notes" class="content-section">
+                <h2>Notes Section</h2>
+                <div class="card notes-actions-
+
+card">
+                    <h3>Your Digital Notepad</h3>
+                    <button class="btn btn-primary" id="new-note-btn">
+                        <i class="fas fa-plus"></i> Create New Note
+                    </button>
+                    <button id="globalShareBtn" class="btn btn-primary">
+                        <i class="fas fa-share"></i> Share Notes
+                    </button>
+                    <button id="globalDownloadBtn" class="btn btn-accent">
+                        <i class="fas fa-download"></i> Download Notes
+                    </button>
+                </div>
+                
+                <div class="notes-grid" id="notes-grid"></div>
+
+            </section>
+
+            <section id="countdown" class="content-section">
+                <h2>Exam Countdown Tracker</h2>
+                <div class="card exam-input-card">
+                    <h3>Schedule New Exam</h3>
+                    <form id="add-exam-form">
+                        <input type="text" id="exam-name" placeholder="Exam/Course Name (e.g., CSC 411)" required>
+                        <input type="date" id="exam-date" required>
+                        <button type="submit" class="btn btn-primary">Add Exam</button>
+                    </form>
+                </div>
+                <div class="exam-list-container" id="exam-list-container">
+                    <p class="no-data">No exams 
+
+scheduled. Focus Mode awaits!</p>
+                </div>
+                <button class="btn btn-accent focus-mode-toggle" id="focus-mode-toggle">
+                    <i class="fas fa-brain"></i> Toggle Focus Mode
+                </button>
+            </section>
+
+            <section id="profile" class="content-section">
+                <h2>User Profile Settings</h2>
+                <div class="card profile-card">
+                    <div class="profile-header">
+                        <div class="avatar-upload-container">
+                            <input type="file" id="avatar-input-profile" accept="image/*" class="avatar-file-input">
+                            <label for="avatar-input-profile">
+
+                                <img id="profile-avatar-img" src="https://via.placeholder.com/100/0077c2/ffffff?text=U" alt="User Avatar" class="profile-avatar">
+                                <i class="fas fa-camera avatar-edit-icon" title="Change Avatar"></i>
+                            </label>
+                        </div>
+                        <h3 id="profile-user-name">User's Account</h3>
+                    </div>
+                    <form id="profile-update-form">
+                        <div class="form-group">
+                            <label for="full-name">Full Name</label>
+                            <input type="text" id="full-name" value="UniPortal User">
+                        </div>
+                        <div class="form-group">
+                            <label for="student-id">Student ID</label>
+                            <input type="text" 
+
+id="student-id" value="S00123456" disabled>
+                        </div>
+                        <div class="form-group">
+                            <label for="major">Major</label>
+                            <input type="text" id="major" value="Computer Science">
+                        </div>
+                        <div class="form-group">
+                            <label for="email">Email</label>
+                            <input type="email" id="email" value="user@university.edu" disabled>
+                        </div>
+                        <div class="form-group">
+                            <label for="current-semester">Current Semester</label>
+                            <input type="number" id="current-semester" value="4">
+                        </div>
+
+                        <button type="submit" class="btn btn-accent">Save Changes</button>
+                    </form>
+                </div>
+                <div class="card backup-card">
+    <h3>Data Backup</h3>
+    <p>Export your data to keep a backup, or import from a previous backup.</p>
+    <div class="backup-actions">
+        <button class="btn btn-primary" id="export-data-btn">
+            <i class="fas fa-download"></i> Export Backup
+        </button>
+        <label for="import-file-input" class="btn btn-accent">
+            <i class="fas fa-upload"></i> Import Backup
+        </label>
+        <input type="file" id="import-file-input" accept=".json" style="display: none;">
+
+    </div>
+    <small style="color: var(--color-text-light); display: block; margin-top: 10px;">
+        💡 Tip: Export regularly to prevent data loss!
+    </small>
+</div>
+            </section>
+
+        </main>
+    </div>
+
+    <div id="confetti-overlay" class="confetti-overlay"></div>
+
+    <!-- Manual Semester Modal -->
+    <div id="cgpa-manual-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" data-modal-id="cgpa-manual-modal">&times;</span>
+            <h2>Add Past Semester Result</h2>
+
+            <p>Manually enter the results for a previous completed semester.</p>
+            
+            <form id="cgpa-manual-form">
+                <div class="form-group">
+                    <label for="manual-sem-name">Semester Name:</label>
+                    <input type="text" id="manual-sem-name" required placeholder="e.g., Year 1 - Spring">
+                </div>
+                <div class="form-group">
+                    <label for="manual-total-points">Total Quality Points Earned:</label>
+                    <input type="number" id="manual-total-points" min="0" step="0.1" required placeholder="e.g., 55.0">
+                </div>
+                <div class="form-group">
+                    <label for="manual-total-units">Total Units/Credits Attempted:</
+
+label>
+                    <input type="number" id="manual-total-units" min="1" required placeholder="e.g., 16">
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Semester
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Note Editor Modal -->
+    <div id="note-editor-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="editor-title">Create Note</h2>
+                <span class="close-btn" data-
+
+modal-id="note-editor-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <input 
+                    type="text" 
+                    id="note-title-input" 
+                    placeholder="Note Title (e.g., Week 5 - Data Structures)"
+                    class="note-title-input"
+                >
+                
+                <!-- THIS IS THE CRITICAL CONTAINER FOR QUILL -->
+                <div id="note-editor-container"></div>
+                
+                <div class="editor-actions">
+                    <button id="save-note-btn" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Note
+
+                    </button>
+                    <button id="downloadNoteEditorBtn" class="btn btn-accent">
+                        <i class="fas fa-download"></i> Download
+                    </button>
+                    <button id="delete-note-btn" class="btn btn-danger" style="display: none;">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Notes Modal -->
+    <div id="shareNotesModal" class="modal">
+        <div class="modal-content">
+
+            <span class="close-btn" data-modal-id="shareNotesModal">&times;</span>
+            <h2>📤 Choose Note to Share</h2>
+            <p>Click on any note title below to share it.</p>
+            <ul id="noteListContainer"></ul>
+            <button id="closeModalBtn" class="btn btn-secondary">Close</button>
+        </div>
+    </div>
+
+    <!-- Download Notes Modal -->
+    <div id="downloadNotesModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" data-modal-id="downloadNotesModal">&times;</span>
+            <h2>⬇️ Select Note to Download</h2>
+            <p>Click on any note title below to download it as a .txt file.</p>
+            <ul id="downloadListContainer" 
+
+class="download-note-list"></ul>
+            <div class="modal-footer">
+                <button id="closeDownloadModalBtn" class="btn btn-secondary">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <script>
+    // Register Service Worker for PWA
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('✅ Service Worker registered:', reg))
+                .catch(err => console.log('❌ Service Worker registration failed:', err));
+        });
+    }
+</script>
+
+    <script src="script.js"></script>
+</body>
+</html>
