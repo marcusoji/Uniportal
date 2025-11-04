@@ -1,6 +1,6 @@
 {
-  "name": "UniPortal - Student Dashboard",
-  "short_name": "UniPortal",
+  "name": "UniPortal - Student Productivity Tool",
+  "short_name": "Uni-Portal",
   "description": "Complete student dashboard for GPA tracking, timetables, notes, and exam countdowns",
   "start_url": "./",
   "scope": "./",
@@ -24,3 +24,4 @@
   ],
   "categories": ["education", "productivity"]
 }
+
