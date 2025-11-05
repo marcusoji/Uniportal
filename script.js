@@ -98,52 +98,319 @@ Math.ceil((examDate - now) / (1000 * 60 * 60 * 24));
             // Check if we already notified for this exam at this checkpoint
             const notificationKey = `exam_${exam.id}_${daysUntil}`;
             const alreadyNotified = localStorage.getItem(notificationKey);
+/**
+ * Student Dashboard JavaScript - WITH ADVANCED NOTIFICATIONS
+ * Includes: Class reminders (1hr, 30min, 15min, 10min) + Exam countdowns
+ */
+
+// --- NOTIFICATION SYSTEM (COMPLETE) ---
+
+let notificationPermission = 'default';
+let notificationCheckInterval = null;
+
+// Request notification permission
+async function requestNotificationPermission() {
+    if ('Notification' in window && Notification.permission === 'default') {
+        notificationPermission = await Notification.requestPermission();
+        console.log('✅ Notification permission:', notificationPermission);
+        
+        if (notificationPermission === 'granted') {
+            showBrowserNotification('UniPortal Ready!', 'Notifications are now enabled. You\'ll be alerted about classes and exams.');
+        }
+    } else if ('Notification' in window) {
+        notificationPermission = Notification.permission;
+        console.log('✅ Notification permission:', notificationPermission);
+    }
+}
+
+// Show browser notification
+function showBrowserNotification(title, body, icon = '🎓') {
+    if (!('Notification' in window)) {
+        console.warn('Browser does not support notifications');
+        return;
+    }
+
+    if (Notification.permission === 'granted') {
+        try {
+            const notification = new Notification(title, {
+                body: body,
+                icon: icon,
+                badge: '🎓',
+                vibrate: [200, 100, 200],
+                tag: 'uniportal-' + Date.now(),
+                requireInteraction: false
+            });
+
+            notification.onclick = function() {
+                window.focus();
+                notification.close();
+            };
+
+            console.log('✅ Notification shown:', title);
+        } catch (error) {
+            console.error('❌ Notification error:', error);
+        }
+    } else {
+        console.warn('⚠️ Notification permission not granted');
+    }
+}
+
+// Add notification to in-app list
+function addNotification(message, time = 'Just now') {
+    if (!state.notifications) {
+        state.notifications = [];
+    }
+    
+    state.notifications.unshift({ message, time });
+    
+    // Keep only last 10 notifications
+    if (state.notifications.length > 10) {
+        state.notifications = state.notifications.slice(0, 10);
+    }
+    
+    saveState();
+    renderNotifications();
+}
+
+// Combined notification (both browser + in-app)
+function sendNotification(title, message) {
+    console.log('📢 Sending notification:', title, message);
+    
+    // Browser/PWA notification
+    showBrowserNotification(title, message);
+    
+    // In-app notification
+    addNotification(message);
+}
+
+// Parse time string to minutes from midnight
+function parseTimeToMinutes(timeString) {
+    const match = timeString.match(/(\d+):(\d+)\s*(AM|PM)/i);
+    if (!match) return null;
+    
+    let hours = parseInt(match[1]);
+    const minutes = parseInt(match[2]);
+    const meridiem = match[3].toUpperCase();
+    
+    if (meridiem === 'PM' && hours !== 12) hours += 12;
+    if (meridiem === 'AM' && hours === 12) hours = 0;
+    
+    return hours * 60 + minutes;
+}
+
+// Check for upcoming class notifications (1hr, 30min, 15min, 10min before)
+function checkUpcomingClassNotifications() {
+    console.log('🔍 Checking upcoming class notifications...');
+    
+    const now = new Date();
+    const today = now.toLocaleString('en-us', { weekday: 'long' });
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    
+    const todayClasses = state.timetable[today] || [];
+    
+    if (todayClasses.length === 0) {
+        console.log('No classes today');
+        return;
+    }
+    
+    console.log(`Found ${todayClasses.length} classes today`);
+    
+    // Check each class for upcoming notifications
+    todayClasses.forEach(classItem => {
+        const classTimeMinutes = parseTimeToMinutes(classItem.time);
+        
+        if (!classTimeMinutes) {
+            console.warn('Could not parse time:', classItem.time);
+            return;
+        }
+        
+        const minutesUntilClass = classTimeMinutes - currentMinutes;
+        
+        console.log(`${classItem.code}: ${minutesUntilClass} minutes until class`);
+        
+        // Define notification checkpoints (in minutes)
+        const checkpoints = [
+            { minutes: 60, label: '1 hour', emoji: '⏰' },
+            { minutes: 30, label: '30 minutes', emoji: '⏰' },
+            { minutes: 15, label: '15 minutes', emoji: '⚠️' },
+            { minutes: 10, label: '10 minutes', emoji: '🔔' }
+        ];
+        
+        checkpoints.forEach(checkpoint => {
+            // Check if we're within 2 minutes of the checkpoint (to avoid missing it)
+            if (minutesUntilClass >= checkpoint.minutes - 2 && minutesUntilClass <= checkpoint.minutes + 2) {
+                const notificationKey = `class_${classItem.code}_${today}_${checkpoint.minutes}min`;
+                const alreadyNotified = sessionStorage.getItem(notificationKey);
+                
+                if (!alreadyNotified) {
+                    sendNotification(
+                        `${checkpoint.emoji} Class Starting Soon!`,
+                        `${classItem.code} (${classItem.subject}) starts in ${checkpoint.label} at ${classItem.time}`
+                    );
+                    
+                    sessionStorage.setItem(notificationKey, 'true');
+                    console.log(`✅ Sent ${checkpoint.label} reminder for ${classItem.code}`);
+                }
+            }
+        });
+        
+        // Also notify when class starts (0-2 minutes)
+        if (minutesUntilClass >= -2 && minutesUntilClass <= 2) {
+            const notificationKey = `class_${classItem.code}_${today}_now`;
+            const alreadyNotified = sessionStorage.getItem(notificationKey);
             
             if (!alreadyNotified) {
-                let message = '';
+                sendNotification(
+                    '🎓 Class Starting NOW!',
+                    `${classItem.code} (${classItem.subject}) is starting now at ${classItem.time}`
+                );
                 
-                if (daysUntil === 0) {
-                    message = `🎯 EXAM TODAY: ${exam.name}! Good luck!`;
-                } else if (daysUntil === 1) {
-
-                    message = `⚠️ TOMORROW: ${exam.name} exam. Final review time!`;
-                } else if (daysUntil <= 5) {
-                    message = `⏰ ${daysUntil} days until ${exam.name} exam. Start preparing!`;
-                } else if (daysUntil <= 10) {
-                    message = `📅 ${daysUntil} days to ${exam.name} exam. Plan your study schedule.`;
-                } else {
-                    message = `📌 ${daysUntil} days to ${exam.name} exam. Mark your calendar!`;
-                }
-                
-                sendNotification('Exam Reminder', message);
-                localStorage.setItem(notificationKey, today);
+                sessionStorage.setItem(notificationKey, 'true');
+                console.log(`✅ Sent "starting now" reminder for ${classItem.code}`);
             }
-
         }
     });
 }
 
-// Run notification checks
+// Check for daily class summary (at 7 AM)
+function checkDailyClassSummary() {
+    console.log('🔍 Checking daily class summary...');
+    
+    const now = new Date();
+    const currentHour = now.getHours();
+    const today = now.toLocaleString('en-us', { weekday: 'long' });
+    const todayClasses = state.timetable[today] || [];
+    
+    if (todayClasses.length === 0) return;
+    
+    // Send summary at 7 AM if not already sent today
+    if (currentHour === 7) {
+        const lastSummaryDate = localStorage.getItem('lastDailySummary');
+        const todayDate = now.toDateString();
+        
+        if (lastSummaryDate !== todayDate) {
+            const classCount = todayClasses.length;
+            const classList = todayClasses.map(c => `${c.code} at ${c.time}`).join(', ');
+            
+            sendNotification(
+                '📚 Today\'s Classes',
+                `You have ${classCount} class${classCount > 1 ? 'es' : ''} today: ${classList}`
+            );
+            
+            localStorage.setItem('lastDailySummary', todayDate);
+            console.log('✅ Daily class summary sent');
+        }
+    }
+}
+
+// Check for exam notifications (40, 20, 10, 5, 2, 1 days and exam day)
+function checkExamNotifications() {
+    console.log('🔍 Checking exam notifications...');
+    
+    if (!state.exams || state.exams.length === 0) {
+        console.log('No exams scheduled');
+        return;
+    }
+    
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
+    state.exams.forEach(exam => {
+        const examDate = new Date(exam.date + "T00:00:00");
+        const daysUntil = Math.ceil((examDate - now) / (1000 * 60 * 60 * 24));
+        
+        console.log(`Exam "${exam.name}" is in ${daysUntil} days`);
+        
+        const checkpoints = [40, 20, 10, 5, 2, 1, 0];
+        
+        if (checkpoints.includes(daysUntil)) {
+            const notificationKey = `exam_${exam.id}_day_${daysUntil}`;
+            const alreadyNotified = localStorage.getItem(notificationKey);
+            
+            if (alreadyNotified) {
+                console.log(`Already notified for ${exam.name} at ${daysUntil} days`);
+                return;
+            }
+            
+            let title = '';
+            let message = '';
+            
+            if (daysUntil === 0) {
+                title = '🎯 EXAM TODAY!';
+                message = `${exam.name} exam is TODAY! Good luck! 🍀`;
+            } else if (daysUntil === 1) {
+                title = '⚠️ EXAM TOMORROW!';
+                message = `${exam.name} exam is TOMORROW. Final review time!`;
+            } else if (daysUntil === 2) {
+                title = '⏰ 2 Days to Exam';
+                message = `${exam.name} exam in 2 days. Prepare well!`;
+            } else if (daysUntil === 5) {
+                title = '📅 5 Days to Exam';
+                message = `${exam.name} exam in 5 days. Start intensive revision!`;
+            } else if (daysUntil === 10) {
+                title = '📌 10 Days to Exam';
+                message = `${exam.name} exam in 10 days. Plan your study schedule.`;
+            } else if (daysUntil === 20) {
+                title = '📆 20 Days to Exam';
+                message = `${exam.name} exam in 20 days. Start early preparation.`;
+            } else if (daysUntil === 40) {
+                title = '📅 40 Days to Exam';
+                message = `${exam.name} exam in 40 days. Mark your calendar!`;
+            }
+            
+            sendNotification(title, message);
+            localStorage.setItem(notificationKey, now.toDateString());
+            console.log(`✅ Exam notification sent for ${exam.name} (${daysUntil} days)`);
+        }
+    });
+}
+
+// Run all notification checks
 function runNotificationChecks() {
-    checkClassNotifications();
+    console.log('🔄 Running notification checks...');
+    checkUpcomingClassNotifications();
+    checkDailyClassSummary();
     checkExamNotifications();
 }
 
-// Schedule notifications to check every hour
+// Schedule notifications to check frequently
 function scheduleNotificationChecks() {
-    runNotificationChecks(); // Run immediately on load
+    console.log('⏰ Scheduling notification checks...');
     
-    // Then check every hour
-    setInterval(runNotificationChecks, 60 * 60 * 1000); // Every 1 hour
+    // Clear any existing interval
+    if (notificationCheckInterval) {
+        clearInterval(notificationCheckInterval);
+    }
     
-    // Also check when visibility changes (user returns to tab)
-
+    // Run immediately on load
+    setTimeout(() => {
+        runNotificationChecks();
+    }, 3000);
+    
+    // Check every 5 minutes for class reminders (more frequent)
+    notificationCheckInterval = setInterval(runNotificationChecks, 5 * 60 * 1000);
+    
+    // Also check when page becomes visible
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) {
+            console.log('👀 Page visible again, checking notifications...');
             runNotificationChecks();
         }
     });
+    
+    // Clear session storage at midnight for fresh daily notifications
+    const now = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    const msUntilMidnight = midnight - now;
+    
+    setTimeout(() => {
+        console.log('🌙 Midnight - clearing session storage for fresh notifications');
+        sessionStorage.clear();
+        scheduleNotificationChecks(); // Reschedule
+    }, msUntilMidnight);
 }
+
 
 // --- UTILITY FUNCTIONS ---
 
@@ -548,7 +815,6 @@ function setupThemeToggle() {
 
 function renderNotifications() {
     const notificationList = document.getElementById('notification-list');
-
     const notificationBadge = document.getElementById('notification-badge');
     const notificationBell = document.getElementById('notification-bell');
     const notificationDropdown = document.getElementById('notification-dropdown');
@@ -558,22 +824,22 @@ function renderNotifications() {
 
     notificationList.innerHTML = '';
     
+    // Clone bell to remove old listeners
     const newBell = notificationBell.cloneNode(true);
     notificationBell.parentNode.replaceChild(newBell, notificationBell);
 
-    if (state.notifications.length > 0) {
+    if (state.notifications && state.notifications.length > 0) {
         if (noNotifications) noNotifications.style.display = 'none';
         if (notificationBadge) {
             notificationBadge.textContent = state.notifications.length;
             notificationBadge.classList.remove('hidden');
         }
 
-        state.notifications.slice(0, 5).forEach(note => {
+        state.notifications.slice(0, 10).forEach(note => {
             const li = document.createElement('li');
             li.innerHTML = `<strong>${note.message}</strong> - <small>${note.time}</small>`;
             notificationList.appendChild(li);
         });
-
     } else {
         if (noNotifications) noNotifications.style.display = 'block';
         if (notificationBadge) notificationBadge.classList.add('hidden');
@@ -581,20 +847,54 @@ function renderNotifications() {
 
     notificationDropdown.classList.remove('active');
 
+    // Toggle dropdown
     newBell.addEventListener('click', (e) => {
         e.stopPropagation();
         notificationDropdown.classList.toggle('active');
     });
 
+    // Close when clicking outside
     document.addEventListener('click', (e) => {
-        if (!notificationDropdown.contains(e.target) 
-
-&& e.target !== newBell) {
+        if (!notificationDropdown.contains(e.target) && !newBell.contains(e.target)) {
             notificationDropdown.classList.remove('active');
         }
     });
+    
+    // Setup clear button (this was missing!)
+    setupClearNotificationsButton();
 }
 
+// Clear notifications button handler
+function setupClearNotificationsButton() {
+    const clearBtn = document.getElementById('clear-notifications-btn');
+    
+    if (clearBtn) {
+        // Remove old listeners by cloning
+        const newClearBtn = clearBtn.cloneNode(true);
+        clearBtn.parentNode.replaceChild(newClearBtn, clearBtn);
+        
+        // Add new listener
+        newClearBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            
+            if (state.notifications && state.notifications.length > 0) {
+                if (confirm('Clear all notifications?')) {
+                    state.notifications = [];
+                    saveState();
+                    renderNotifications();
+                    
+                    // Visual feedback
+                    newClearBtn.textContent = '✓ Cleared!';
+                    setTimeout(() => {
+                        newClearBtn.innerHTML = '<i class="fas fa-check"></i> Clear All';
+                    }, 1500);
+                }
+            } else {
+                alert('No notifications to clear');
+            }
+        });
+    }
+        }
 // --- OVERVIEW SECTION ---
 
 function renderOverview() {
@@ -1801,38 +2101,61 @@ mainAppContainer.classList.remove('main-content-hidden');
         window.addEventListener('resize', toggleMenuVisibility);
     };
     
-    createMobileMenu();
-    // Initialize notification system
+    // ============================================
+    // NOTIFICATION SYSTEM INITIALIZATION
+    // ============================================
+    console.log('🚀 Initializing notification system...');
+    
+    // Request permission and start scheduling
     requestNotificationPermission().then(() => {
         scheduleNotificationChecks();
     });
     
-    // Clear old notification flags on new day
+    // Clear old notification flags daily
     const checkAndClearOldFlags = () => {
         const today = new Date().toDateString();
         const lastClearDate = localStorage.getItem('lastNotificationClear');
         
         if (lastClearDate !== today) {
-            // Clear all exam notification flags
+            console.log('🧹 Clearing old notification flags...');
+            
+            // Clear old exam notification flags (keep only last 7 days)
             Object.keys(localStorage).forEach(key => {
                 if (key.startsWith('exam_')) {
-                    localStorage.removeItem(key);
+                    const dateStored = localStorage.getItem(key);
+                    const daysDiff = Math.floor((new Date() - new Date(dateStored)) / (1000 * 60 * 60 * 24));
+                    if (daysDiff > 7) {
+                        localStorage.removeItem(key);
+                    }
                 }
             });
+            
             localStorage.setItem('lastNotificationClear', today);
-
         }
     };
     checkAndClearOldFlags();
-    // Clear notifications button
-    const clearNotificationsBtn = document.getElementById('clear-notifications-btn');
-    if (clearNotificationsBtn) {
-        clearNotificationsBtn.addEventListener('click', () => {
-            state.notifications = [];
-            saveState();
-            renderNotifications();
-        });
-    }
+    
+    // Add test buttons (remove after confirming it works)
+    const testButtonsContainer = document.createElement('div');
+    testButtonsContainer.style.cssText = 'position: fixed; bottom: 20px; left: 20px; z-index: 9999; display: flex; gap: 10px; flex-direction: column;';
+    testButtonsContainer.innerHTML = `
+        <button onclick="testNotification()" class="btn btn-primary" style="font-size: 0.85rem; padding: 8px 12px;">
+            🧪 Test Notification
+        </button>
+        <button onclick="testClassReminder()" class="btn btn-accent" style="font-size: 0.85rem; padding: 8px 12px;">
+            ⏰ Test Class Reminder
+        </button>
+        <button onclick="runNotificationChecks()" class="btn btn-secondary" style="font-size: 0.85rem; padding: 8px 12px;">
+            🔄 Check Now
+        </button>
+    `;
+    document.body.appendChild(testButtonsContainer);
+    
+    // Remove test buttons after 30 seconds (or remove this block entirely after testing)
+    setTimeout(() => {
+        testButtonsContainer.remove();
+    }, 30000);
+});
     const exportBtn = document.getElementById('export-data-btn');
 const importInput = document.getElementById('import-file-input');
 
@@ -1880,3 +2203,4 @@ function importData(file) {
     };
     reader.readAsText(file);
                 }
+
