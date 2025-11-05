@@ -32,25 +32,39 @@ function showBrowserNotification(title, body, icon = '🎓') {
     }
 
     if (Notification.permission === 'granted') {
-        try {
-            const notification = new Notification(title, {
+        // --- START MODIFIED LOGIC ---
+        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+            // 1. Send notification data to the active Service Worker
+            navigator.serviceWorker.controller.postMessage({
+                action: 'notify',
+                title: title,
                 body: body,
-                icon: icon,
-                badge: '🎓',
-                vibrate: [200, 100, 200],
-                tag: 'uniportal-' + Date.now(),
-                requireInteraction: false
+                icon: icon
             });
+            console.log('✅ Notification sent to Service Worker:', title);
+        } else {
+            // 2. Fallback if Service Worker is not active (i.e., page is open)
+            try {
+                const notification = new Notification(title, {
+                    body: body,
+                    icon: icon,
+                    badge: '🎓',
+                    vibrate: [200, 100, 200],
+                    tag: 'uniportal-' + Date.now(),
+                    requireInteraction: false // Set this to false for non-persistent
+                });
 
-            notification.onclick = function() {
-                window.focus();
-                notification.close();
-            };
+                notification.onclick = function() {
+                    window.focus();
+                    notification.close();
+                };
 
-            console.log('✅ Notification shown:', title);
-        } catch (error) {
-            console.error('❌ Notification error:', error);
+                console.log('✅ Standard Notification shown:', title);
+            } catch (error) {
+                console.error('❌ Standard Notification error:', error);
+            }
         }
+        // --- END MODIFIED LOGIC ---
     } else {
         console.warn('⚠️ Notification permission not granted');
     }
@@ -77,12 +91,13 @@ function addNotification(message, time = 'Just now') {
 function sendNotification(title, message) {
     console.log('📢 Sending notification:', title, message);
     
-    // Browser/PWA notification
-    showBrowserNotification(title, message);
+    // Browser/PWA notification (now uses SW if available)
+    showBrowserNotification(title, message); 
     
     // In-app notification
     addNotification(message);
 }
+
 
 // Parse time string to minutes from midnight
 function parseTimeToMinutes(timeString) {
@@ -2118,3 +2133,4 @@ function importData(file) {
     };
     reader.readAsText(file);
 }
+
