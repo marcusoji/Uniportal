@@ -69,6 +69,34 @@ self.addEventListener('activate', event => {
   );
   return self.clients.claim(); // Take control immediately
 });
+// Message event - Receive requests from main script.js for scheduled notifications
+self.addEventListener('message', event => {
+  console.log('[ServiceWorker] Received message from main thread:', event.data.action);
+  
+  // Check if the message is a notification request
+  if (event.data && event.data.action === 'notify') {
+    const { title, body, icon } = event.data;
+    
+    // Use self.registration.showNotification to display the notification
+    event.waitUntil(
+      self.registration.showNotification(title, {
+        body: body,
+        icon: icon || './icon-192.png', // Use provided icon or default
+        badge: './icon-192.png',
+        vibrate: [200, 100, 200],
+        tag: 'uniportal-scheduled-' + Date.now(),
+        requireInteraction: true // Set to true if you want it to stay open
+      })
+      .then(() => {
+        console.log('[ServiceWorker] Displayed scheduled notification:', title);
+      })
+      .catch(error => {
+        console.error('[ServiceWorker] Failed to display notification:', error);
+      })
+    );
+  }
+});
+
 
 // Push notification event
 self.addEventListener('push', event => {
@@ -85,3 +113,4 @@ self.addEventListener('push', event => {
     self.registration.showNotification(title, options)
   );
 });
+
