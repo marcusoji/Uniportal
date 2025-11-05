@@ -1821,34 +1821,7 @@ content: 'Mon'; }
     display: block;
 }
 
-/* Style notification list */
-#notification-dropdown h4 {
-    padding: 12px 15px;
-    margin: 0;
-    border-bottom: 1px solid var(--color-border);
-    font-size: 1rem;
-}
 
-#notification-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-#notification-list li {
-    padding: 12px 15px;
-    border-bottom: 1px solid var(--color-border);
-}
-
-#notification-list li:last-child {
-    border-bottom: none;
-}
-
-.no-notifications {
-    padding: 20px;
-    text-align: center;
-    color: var(--color-text-light);
-}
 
 /* Notification bell styling */
 #notification-bell {
@@ -1984,4 +1957,5 @@ content: 'Mon'; }
     background-color: var(--color-danger);
     color: white;
 }
+
 
