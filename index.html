@@ -58,15 +58,15 @@ id="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>-->
                     <div class="notification-container">
                         <i class="fas fa-bell" id="notification-bell"></i>
                         <span class="notification-badge hidden" id="notification-badge">0</span>
-                        <div class="notification-
-
-dropdown" id="notification-dropdown">
-                            <h4>Notifications</h4>
-                            <ul id="notification-list"></ul>
-                            <p class="no-notifications">All caught up!</p>
-                            <button id="clear-notifications-btn" class="btn btn-small btn-secondary" style="width: 100%; margin-top: 10px;">
-        <i class="fas fa-check"></i> Clear All
-    </button>
+                        <div class="notification-dropdown" id="notification-dropdown">
+    <div style="padding: 12px 15px; border-bottom: 1px solid var(--color-border); display: flex; justify-content: space-between; align-items: center;">
+        <h4 style="margin: 0; font-size: 1rem;">Notifications</h4>
+        <button id="clear-notifications-btn" class="btn btn-small btn-secondary" style="padding: 5px 10px; font-size: 0.8rem;">
+            <i class="fas fa-trash"></i> Clear
+        </button>
+    </div>
+    <ul id="notification-list"></ul>
+    <p class="no-notifications" style="padding: 20px; text-align: center; color: var(--color-text-light);">All caught up!</p>
                         </div>
                     </div>
                     <button id="theme-toggle" class="theme-toggle">
@@ -476,4 +476,5 @@ class="download-note-list"></ul>
     <script src="script.js"></script>
 </body>
 </html>
+
 
