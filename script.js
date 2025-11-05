@@ -25,7 +25,7 @@ async function requestNotificationPermission() {
 }
 
 // Show browser notification
-function showBrowserNotification(title, body, icon = '🎓') {
+function showBrowserNotification(title, body) {
     if (!('Notification' in window)) {
         console.warn('Browser does not support notifications');
         return;
@@ -2133,5 +2133,6 @@ function importData(file) {
     };
     reader.readAsText(file);
 }
+
 
 
