@@ -39,7 +39,7 @@ function showBrowserNotification(title, body, icon = '🎓') {
                 action: 'notify',
                 title: title,
                 body: body,
-                icon: icon
+                icon: './icon-192.png'
             });
             console.log('✅ Notification sent to Service Worker:', title);
         } else {
@@ -47,8 +47,8 @@ function showBrowserNotification(title, body, icon = '🎓') {
             try {
                 const notification = new Notification(title, {
                     body: body,
-                    icon: icon,
-                    badge: '🎓',
+                    icon: './icon-192.png',
+                    badge: './icon-192.png',
                     vibrate: [200, 100, 200],
                     tag: 'uniportal-' + Date.now(),
                     requireInteraction: false // Set this to false for non-persistent
@@ -2133,4 +2133,5 @@ function importData(file) {
     };
     reader.readAsText(file);
 }
+
 
