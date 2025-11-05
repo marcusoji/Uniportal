@@ -2100,6 +2100,7 @@ mainAppContainer.classList.remove('main-content-hidden');
         // Handle window resize
         window.addEventListener('resize', toggleMenuVisibility);
     };
+    createMobileMenu()
     
     // ============================================
     // NOTIFICATION SYSTEM INITIALIZATION
@@ -2135,27 +2136,8 @@ mainAppContainer.classList.remove('main-content-hidden');
     };
     checkAndClearOldFlags();
     
-    // Add test buttons (remove after confirming it works)
-    const testButtonsContainer = document.createElement('div');
-    testButtonsContainer.style.cssText = 'position: fixed; bottom: 20px; left: 20px; z-index: 9999; display: flex; gap: 10px; flex-direction: column;';
-    testButtonsContainer.innerHTML = `
-        <button onclick="testNotification()" class="btn btn-primary" style="font-size: 0.85rem; padding: 8px 12px;">
-            🧪 Test Notification
-        </button>
-        <button onclick="testClassReminder()" class="btn btn-accent" style="font-size: 0.85rem; padding: 8px 12px;">
-            ⏰ Test Class Reminder
-        </button>
-        <button onclick="runNotificationChecks()" class="btn btn-secondary" style="font-size: 0.85rem; padding: 8px 12px;">
-            🔄 Check Now
-        </button>
-    `;
-    document.body.appendChild(testButtonsContainer);
-    
-    // Remove test buttons after 30 seconds (or remove this block entirely after testing)
-    setTimeout(() => {
-        testButtonsContainer.remove();
-    }, 30000);
-});
+
+
     const exportBtn = document.getElementById('export-data-btn');
 const importInput = document.getElementById('import-file-input');
 
@@ -2203,4 +2185,5 @@ function importData(file) {
     };
     reader.readAsText(file);
                 }
+
 
