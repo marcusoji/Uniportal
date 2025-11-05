@@ -3,7 +3,8 @@ const urlsToCache = [
   './',
   './index.html',
   './style.css',
-  './script.js'
+  './script.js',
+  './icon-192.png'
 ];
 
 // Install event - cache resources
@@ -113,4 +114,5 @@ self.addEventListener('push', event => {
     self.registration.showNotification(title, options)
   );
 });
+
 
