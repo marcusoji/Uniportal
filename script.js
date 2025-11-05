@@ -1,104 +1,5 @@
 
 /**
- * Student Dashboard JavaScript - WITH SMART NOTIFICATIONS
- * PWA-ready with notification system
- */
-
-// --- NOTIFICATION SYSTEM ---
-
-let notificationPermission = 'default';
-
-// Request notification permission on load
-async function requestNotificationPermission() {
-    if ('Notification' in window) {
-        notificationPermission = await Notification.requestPermission();
-        console.log('Notification permission:', notificationPermission);
-    }
-}
-
-// Show browser notification
-function showBrowserNotification(title, body, icon = '🎓') {
-    if (notificationPermission === 'granted') {
-        new Notification(title, {
-            body: body,
-            icon: icon,
-            badge: '🎓',
-            vibrate: [200, 100, 200],
-            tag: 'uniportal-notification'
-        });
-    }
-}
-
-// Add notification to in-app list
-function addNotification(message, time = 'Just now') {
-    state.notifications.unshift({ message, time });
-    
-    // Keep only last 10 notifications
-    if (state.notifications.length > 10) {
-
-        state.notifications = state.notifications.slice(0, 10);
-    }
-    
-    saveState();
-    renderNotifications();
-}
-
-// Combined notification (both browser + in-app)
-function sendNotification(title, message) {
-    // Browser/PWA notification
-    showBrowserNotification(title, message);
-    
-    // In-app notification
-    addNotification(message);
-}
-
-// Check for class notifications (runs on page load and every hour)
-function checkClassNotifications() {
-
-    const now = new Date();
-    const today = now.toLocaleString('en-us', { weekday: 'long' });
-    const todayClasses = state.timetable[today] || [];
-    
-    if (todayClasses.length === 0) return;
-    
-    // Check if we already notified today
-    const lastNotificationDate = localStorage.getItem('lastClassNotification');
-    const todayDate = now.toDateString();
-    
-    if (lastNotificationDate === todayDate) return; // Already notified today
-    
-    // Send notification about today's classes
-    const classCount = todayClasses.length;
-    const classList = todayClasses.map(c => `${c.code} at ${c.time}`).join(', ');
-
-    
-    sendNotification(
-        '📚 Classes Today!',
-        `You have ${classCount} class${classCount > 1 ? 'es' : ''} today: ${classList}`
-    );
-    
-    localStorage.setItem('lastClassNotification', todayDate);
-}
-
-// Check for exam notifications
-function checkExamNotifications() {
-    const now = new Date();
-    const today = now.toDateString();
-    
-    state.exams.forEach(exam => {
-        const examDate = new Date(exam.date + "T00:00:00");
-        const daysUntil = 
-
-Math.ceil((examDate - now) / (1000 * 60 * 60 * 24));
-        
-        // Notification checkpoints: 40, 20, 10, 5, 2, 1 days and exam day
-        const checkpoints = [40, 20, 10, 5, 2, 1, 0];
-        
-        if (checkpoints.includes(daysUntil)) {
-            // Check if we already notified for this exam at this checkpoint
-            const notificationKey = `exam_${exam.id}_${daysUntil}`;
-            const alreadyNotified = localStorage.getItem(notificationKey);
-/**
  * Student Dashboard JavaScript - WITH ADVANCED NOTIFICATIONS
  * Includes: Class reminders (1hr, 30min, 15min, 10min) + Exam countdowns
  */
@@ -411,7 +312,19 @@ function scheduleNotificationChecks() {
     }, msUntilMidnight);
 }
 
+// Test notification function
+function testNotification() {
+    console.log('🧪 Testing notification...');
+    sendNotification('Test Notification', 'If you see this, notifications are working! ✅');
+}
 
+// Test class reminder function
+function testClassReminder() {
+    console.log('🧪 Testing class reminder...');
+    const now = new Date();
+    const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    sendNotification('⏰ Class Reminder Test', `This is a test class reminder. Current time: ${time}`);
+}
 // --- UTILITY FUNCTIONS ---
 
 // Unified file creation for notes (used for both share and download)
@@ -819,22 +732,22 @@ function renderNotifications() {
     const notificationBell = document.getElementById('notification-bell');
     const notificationDropdown = document.getElementById('notification-dropdown');
     const noNotifications = document.querySelector('.no-notifications');
-
+    
     if (!notificationList || !notificationBell || !notificationDropdown) return;
-
+    
     notificationList.innerHTML = '';
     
     // Clone bell to remove old listeners
     const newBell = notificationBell.cloneNode(true);
     notificationBell.parentNode.replaceChild(newBell, notificationBell);
-
+    
     if (state.notifications && state.notifications.length > 0) {
         if (noNotifications) noNotifications.style.display = 'none';
         if (notificationBadge) {
             notificationBadge.textContent = state.notifications.length;
             notificationBadge.classList.remove('hidden');
         }
-
+        
         state.notifications.slice(0, 10).forEach(note => {
             const li = document.createElement('li');
             li.innerHTML = `<strong>${note.message}</strong> - <small>${note.time}</small>`;
@@ -844,15 +757,15 @@ function renderNotifications() {
         if (noNotifications) noNotifications.style.display = 'block';
         if (notificationBadge) notificationBadge.classList.add('hidden');
     }
-
+    
     notificationDropdown.classList.remove('active');
-
+    
     // Toggle dropdown
     newBell.addEventListener('click', (e) => {
         e.stopPropagation();
         notificationDropdown.classList.toggle('active');
     });
-
+    
     // Close when clicking outside
     document.addEventListener('click', (e) => {
         if (!notificationDropdown.contains(e.target) && !newBell.contains(e.target)) {
@@ -894,7 +807,8 @@ function setupClearNotificationsButton() {
             }
         });
     }
-        }
+}
+
 // --- OVERVIEW SECTION ---
 
 function renderOverview() {
@@ -2100,9 +2014,9 @@ mainAppContainer.classList.remove('main-content-hidden');
         // Handle window resize
         window.addEventListener('resize', toggleMenuVisibility);
     };
-    createMobileMenu()
     
-    // ============================================
+    createMobileMenu();
+// ============================================
     // NOTIFICATION SYSTEM INITIALIZATION
     // ============================================
     console.log('🚀 Initializing notification system...');
@@ -2136,8 +2050,27 @@ mainAppContainer.classList.remove('main-content-hidden');
     };
     checkAndClearOldFlags();
     
-
-
+    // Add test buttons (remove after confirming it works)
+    const testButtonsContainer = document.createElement('div');
+    testButtonsContainer.style.cssText = 'position: fixed; bottom: 20px; left: 20px; z-index: 9999; display: flex; gap: 10px; flex-direction: column;';
+    /*testButtonsContainer.innerHTML = `
+        <button onclick="testNotification()" class="btn btn-primary" style="font-size: 0.85rem; padding: 8px 12px;">
+            🧪 Test Notification
+        </button>
+        <button onclick="testClassReminder()" class="btn btn-accent" style="font-size: 0.85rem; padding: 8px 12px;">
+            ⏰ Test Class Reminder
+        </button>
+        <button onclick="runNotificationChecks()" class="btn btn-secondary" style="font-size: 0.85rem; padding: 8px 12px;">
+            🔄 Check Now
+        </button>
+    `;
+    document.body.appendChild(testButtonsContainer);
+    
+    // Remove test buttons after 30 seconds (or remove this block entirely after testing)
+    setTimeout(() => {
+        testButtonsContainer.remove();
+    }, 30000);*/
+});
     const exportBtn = document.getElementById('export-data-btn');
 const importInput = document.getElementById('import-file-input');
 
@@ -2154,7 +2087,7 @@ if (importInput) {
     });
 }
 
-});
+
 // Add Export/Import functionality for backup
 function exportData() {
     const dataStr = JSON.stringify(state, null, 2);
@@ -2184,6 +2117,4 @@ function importData(file) {
         }
     };
     reader.readAsText(file);
-                }
-
-
+}
