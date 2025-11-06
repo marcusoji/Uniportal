@@ -1892,4 +1892,4 @@ body.dark-theme #note-editor-container {
 #clear-notifications-btn:hover {
     background-color: var(--color-danger);
     color: white;
-    }
+}
