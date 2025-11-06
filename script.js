@@ -1877,9 +1877,54 @@ function handleResetData() {
     }
 }
 
+function setupNotificationControls() {
+    const notificationBell = document.getElementById('notification-bell');
+    const notificationDropdown = document.getElementById('notification-dropdown');
+    
+    // 1. Toggle Dropdown on Bell Click
+    if (notificationBell && notificationDropdown) {
+        notificationBell.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevents the document click listener from firing immediately
+            
+            // Toggle the 'active' class to show/hide the dropdown
+            notificationDropdown.classList.toggle('active');
+            
+            // Re-render the in-app list every time the dropdown is opened
+            if (notificationDropdown.classList.contains('active')) {
+                // You must ensure renderNotifications() is defined and working here
+                renderNotifications(); 
+
+                // Set up listener to close when clicking outside the bell/dropdown
+                document.addEventListener('click', closeDropdownOnOutsideClick);
+            } else {
+                // If closing, remove the document listener
+                document.removeEventListener('click', closeDropdownOnOutsideClick);
+            }
+        });
+    }
+}
+
+// Helper function to close dropdown when clicking outside
+function closeDropdownOnOutsideClick(e) {
+    const notificationDropdown = document.getElementById('notification-dropdown');
+    const notificationBell = document.getElementById('notification-bell');
+
+    // Check if the click target is outside the dropdown and not the bell icon itself
+    if (notificationDropdown && notificationBell && 
+        !notificationDropdown.contains(e.target) && 
+        e.target !== notificationBell && 
+        !notificationBell.contains(e.target)) {
+        
+        notificationDropdown.classList.remove('active');
+        document.removeEventListener('click', closeDropdownOnOutsideClick);
+    }
+}
+
+
 
 // --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', () => {
+    
     
     // Avatar Upload
     const navInput = document.getElementById('avatar-input-nav');
@@ -1923,6 +1968,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupNotificationClear();
     requestNotificationPermission();
     scheduleNotificationChecks();
+    setupNotificationControls();
     
     // --- MAIN NAVIGATION AND RENDERING ---
     document.querySelectorAll('.nav-item').forEach(item => {
@@ -2012,7 +2058,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (deleteNoteBtn) deleteNoteBtn.addEventListener('click', deleteNote);
     if (editorDownloadBtn) editorDownloadBtn.addEventListener('click', handleEditorDownload);
     
-    if (shareNoteBtn) shareNoteBtn.addEventListener('click', () => openModal('shareNotesModal'));
+    const shareNotesBtn = document.getElementById('share-note-btn'); // Assuming this ID opens the modal
+if (shareNotesBtn) {
+    shareNotesBtn.addEventListener('click', () => {
+        populateNoteList(); // <-- ADD THIS LINE!
+        openModal('shareNotesModal'); 
+    });
+}
     if (closeShareModalBtn) closeShareModalBtn.addEventListener('click', () => closeModal('shareNotesModal'));
     if (downloadNoteListBtn) downloadNoteListBtn.addEventListener('click', () => openDownloadModal('downloadNotesModal'));
     if (closeDownloadModalBtn) closeDownloadModalBtn.addEventListener('click', () => closeModal('downloadNotesModal'));
