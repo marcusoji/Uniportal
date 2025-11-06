@@ -342,44 +342,32 @@ function testClassReminder() {
 // --- UTILITY FUNCTIONS ---
 
 // Unified file creation for notes (used for both share and download)
-function createNoteFile(note, format = 'txt') {
+function createNoteFile(note) {
     if (!note || !note.content) return null;
     
+    // Strip HTML for plain text
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = note.content;
     const plainText = tempDiv.textContent || tempDiv.innerText || "";
-    const fileNameBase = note.title.replace(/[^a-zA-Z0-9]/g, '_') || 'UniPortal_Note';
-    
-    let fileContent;
-    let fileMimeType;
-    let fileName;
-    
-    if (format === 'html') {
-        fileContent = `<!DOCTYPE html><html><head><title>${note.title}</title></head><body><h1>${note.title}</h1><div>${note.content}</div></body></html>`;
-        fileMimeType = 'text/html';
-        fileName = `${fileNameBase}.html`;
-    } else if (format === 'json') {
-        fileContent = JSON.stringify(note, null, 2);
-        fileMimeType = 'application/json';
-        fileName = `${fileNameBase}.json`;
-    } else { // default to txt
-        fileContent = 
-            `UniPortal Note: ${note.title}\n` +
-            `Date: ${note.date || new Date().toLocaleDateString()}\n` +
-            `----------------------------------------\n\n` +
-            plainText;
-        fileMimeType = 'text/plain';
-        fileName = `${fileNameBase}.txt`;
-    }
 
-    const blob = new Blob([fileContent], { type: fileMimeType });
-    return new File([blob], fileName, { type: fileMimeType });
+    
+    const fileContent = 
+        `UniPortal Note: ${note.title}\n` +
+        `Date: ${note.date || new Date().toLocaleDateString()}\n` +
+        `----------------------------------------\n\n` +
+        plainText;
+
+    const blob = new Blob([fileContent], { type: 'text/plain' });
+    const fileName = `${note.title.replace(/[^a-zA-Z0-9]/g, '_')}_UniPortal.txt`;
+    
+    return new File([blob], fileName, { type: 'text/plain' });
 }
 
 // Unified download trigger function
 function executeDownload(file) {
     if (!file) {
         console.error("Download failed: No file object provided.");
+
         alert("Failed to create download file.");
         return;
     }
@@ -401,21 +389,20 @@ function executeDownload(file) {
 // --- SHARE FUNCTIONALITY ---
 
 async function executeShare(note) {
-    // Create a plain text version for the share data text body
+    const singleNoteFile = createNoteFile(note); 
+    
+    if (!singleNoteFile) {
+        alert("Failed to create file for sharing.");
+        return;
+    }
+    
+    // Create a better preview of the note content
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = note.content;
     const plainText = tempDiv.textContent || tempDiv.innerText || "";
     const preview = plainText.length > 150 
         ? plainText.substring(0, 150).trim() + '...' 
         : plainText;
-    
-    // Create a file object for file sharing
-    const singleNoteFile = createNoteFile(note, 'txt'); 
-    
-    if (!singleNoteFile) {
-        alert("Failed to create file for sharing.");
-        return;
-    }
     
     const shareData = {
         title: `📝 ${note.title}`,
@@ -457,155 +444,120 @@ async function executeShare(note) {
                     );
                     alert("✅ Note copied to clipboard! You can now paste it anywhere.");
                 } catch (clipErr) {
-                    alert("Sharing failed and clipboard access denied.");
+                    alert("Sharing not supported on this device. Use the download feature instead.");
                 }
             }
         }
     }
 }
 
-
-function setupDownloadGlobalModal() {
-    const downloadModal = document.getElementById('downloadNotesModal');
-    const downloadListContainer = document.getElementById('downloadListContainer');
-    const closeDownloadModalBtn = document.getElementById('closeDownloadModalBtn');
-    const globalDownloadBtn = document.getElementById('globalDownloadBtn');
+function populateNoteList() {
+    const noteListContainer = document.getElementById('noteListContainer'); 
     
-    if (!downloadModal || !downloadListContainer || !globalDownloadBtn) return;
-    
-    globalDownloadBtn.addEventListener('click', () => {
-        renderDownloadList();
-        openModal('downloadNotesModal');
-    });
-
-    closeDownloadModalBtn.addEventListener('click', () => closeModal('downloadNotesModal'));
-    
-    function renderDownloadList() {
-        downloadListContainer.innerHTML = '';
-        if (state.notes.length === 0) {
-            downloadListContainer.innerHTML = '<p class="no-data">No notes to download.</p>';
-            return;
-        }
-
-        const ul = document.createElement('ul');
-        ul.className = 'download-note-list';
-
-        state.notes.forEach(note => {
-            const li = document.createElement('li');
-            li.innerHTML = `
-                <span>${note.title}</span>
-                <div class="download-actions">
-                    <button class="btn btn-small btn-primary" data-id="${note.id}" data-format="txt">TXT</button>
-                    <button class="btn btn-small btn-accent" data-id="${note.id}" data-format="html">HTML</button>
-                    <button class="btn btn-small btn-secondary" data-id="${note.id}" data-format="json">JSON</button>
-                </div>
-            `;
-            
-            // Add event listeners to the download buttons
-            li.querySelectorAll('button').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const noteId = e.target.getAttribute('data-id');
-                    const format = e.target.getAttribute('data-format');
-                    const noteToDownload = state.notes.find(n => n.id === noteId);
-                    
-                    if (noteToDownload) {
-                        handleDownloadFromGlobalModal(noteToDownload, format);
-                    }
-                });
-            });
-            
-            ul.appendChild(li);
-        });
-        downloadListContainer.appendChild(ul);
+    if (!noteListContainer) {
+        console.warn("Error: Note list container not found.");
+        return; 
     }
-}
 
-function handleDownloadFromGlobalModal(note, format) {
-    const noteFile = createNoteFile(note, format);
-    if (noteFile) {
-        executeDownload(noteFile);
-        console.log(`Download initiated for: ${note.title} in ${format} format`);
-    }
-}
+    noteListContainer.innerHTML = '';
+    const notesToDisplay = state.notes; 
 
-function setupShareGlobalModal() {
-    const shareModal = document.getElementById('shareNotesModal');
-    const noteListContainer = document.getElementById('noteListContainer');
-    const closeModalBtn = document.getElementById('closeModalBtn');
-    const globalShareBtn = document.getElementById('globalShareBtn');
-
-    if (!shareModal || !noteListContainer || !globalShareBtn) return;
-
-    globalShareBtn.addEventListener('click', () => {
-        renderShareList();
-        openModal('shareNotesModal');
-    });
-
-    closeModalBtn.addEventListener('click', () => closeModal('shareNotesModal'));
-
-    function renderShareList() {
-        noteListContainer.innerHTML = '';
-        if (state.notes.length === 0) {
-            noteListContainer.innerHTML = '<p class="no-data">No notes available for sharing.</p>';
-            return;
-        }
-
-        const ul = document.createElement('ul');
-        ul.className = 'note-list';
-
-        state.notes.forEach(note => {
-            const li = document.createElement('li');
-            li.textContent = note.title;
-            li.setAttribute('data-id', note.id);
-            li.style.cursor = 'pointer';
-            li.style.padding = '10px';
-            li.style.borderBottom = '1px solid var(--color-border)';
-            li.addEventListener('click', (e) => {
-                const noteId = e.target.getAttribute('data-id');
-                const noteToShare = state.notes.find(n => n.id === noteId);
-                if (noteToShare) {
-                    executeShare(noteToShare);
-                }
-            });
-            ul.appendChild(li);
-        });
-        noteListContainer.appendChild(ul);
-    }
-}
-
-// Downloads the currently open note from the editor
-function downloadCurrentNoteFromEditor(format = 'txt') {
-    const title = document.getElementById('note-title-input')?.value.trim() || 'Untitled Note'; // FIX: updated ID from note-title
-    const content = quill.root.innerHTML;
-    
-    if (!content || content.trim() === '') {
-        alert("Note content is empty. Nothing to download.");
+    if (notesToDisplay.length === 0) {
+        noteListContainer.innerHTML = '<li class="no-data">No notes available to share.</li>';
         return;
     }
+
+
+    notesToDisplay.forEach(note => {
+        const listItem = document.createElement('li');
+        listItem.textContent = note.title; 
+        listItem.setAttribute('data-note-id', String(note.id)); 
+        
+        listItem.addEventListener('click', async (e) => { 
+            const selectedId = e.currentTarget.getAttribute('data-note-id');
+            const selectedNote = notesToDisplay.find(n => String(n.id) === selectedId); 
+            
+            if (selectedNote) {
+                await executeShare(selectedNote);
+            }
+        });
+        
+
+        noteListContainer.appendChild(listItem);
+    });
+}
+
+// --- DOWNLOAD FUNCTIONALITY ---
+
+function populateDownloadList() {
+    const downloadListContainer = document.getElementById('downloadListContainer');
     
-    // Create a temporary note object for file creation utility
+    if (!downloadListContainer) {
+        console.warn("Error: Download list container not found.");
+        return; 
+    }
+
+    downloadListContainer.innerHTML = '';
+    const notesToDisplay = state.notes; 
+
+    if (notesToDisplay.length === 0) {
+
+        downloadListContainer.innerHTML = '<li class="no-data">No notes available to download.</li>';
+        return;
+    }
+
+    notesToDisplay.forEach(note => {
+        const listItem = document.createElement('li');
+        listItem.className = 'download-list-item';
+        listItem.textContent = note.title;
+        listItem.setAttribute('data-note-id', String(note.id)); 
+        
+        listItem.addEventListener('click', (e) => {
+            const selectedId = e.currentTarget.getAttribute('data-note-id'); 
+            const selectedNote = state.notes.find(n => String(n.id) === selectedId);
+
+            if (selectedNote) {
+                const file = createNoteFile(selectedNote);
+                executeDownload(file);
+                closeModal('downloadNotesModal'); 
+            }
+        });
+        
+        downloadListContainer.appendChild(listItem);
+    });
+}
+
+function handleEditorDownload() {
+    if (!quill || quill.getText().trim() === '') {
+        alert("Cannot download an empty note. Please add content first.");
+        return;
+    }
+
+    const noteTitleInput = document.getElementById('note-title-input');
+    const title = noteTitleInput.value.trim() || 'Untitled Note';
+    const content = quill.root.innerHTML; 
+    
     const tempNote = {
         title: title,
         content: content,
-        date: state.notes.find(n => n.id === currentEditingNoteId)?.date || new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
-        id: currentEditingNoteId || Date.now().toString()
+        date: state.notes.find(n => n.id === currentEditingNoteId)?.date || 
+              new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+        id: currentEditingNoteId || Date.now().toString() 
     };
+
+    const noteFile = createNoteFile(tempNote);
     
-    const noteFile = createNoteFile(tempNote, format);
+
     if (noteFile) {
         executeDownload(noteFile);
         console.log(`Download initiated for: ${title}`);
-    }
+    } 
 }
 
 // --- CONSTANTS & STATE ---
-const GRADE_POINTS = { 
-    'A': 5.0, 
-    'B': 4.0, 
-    'C': 3.0, 
-    'D': 2.0, 
-    'E': 1.0, 
-    'F': 0.0 
+
+const GRADE_POINTS = {
+    'A': 5.0, 'B': 4.0, 'C': 3.0, 'D': 2.0, 'E': 1.0, 'F': 0.0
 };
 const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const HOUR_SLOTS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
@@ -619,201 +571,120 @@ const getInitialState = () => {
         userName: "New User",
         studentId: "S00123456",
         major: "Computer Science",
-        email: "user@university.edu",
+        email: "user@unistident.edu",
         currentSemester: 1,
-        courses: [], // Current semester courses
-        semesters: [], // Past semesters (for CGPA)
-        timetable: {}, // Weekly schedule
-        notes: [], // User notes
-        exams: [], // Exam countdowns
-        notifications: [], // In-app notifications
-        isFocusMode: false,
-        theme: 'light'
+        theme: 'light',
+        currentSection: 'overview',
+        notifications: [],
+        courses: [],
+        semesters: [
+            { name: "Fall 2023", gpa: 3.2, totalPoints: 48, totalUnits: 15, courses: [] },
+            { name: "Rise 2024", gpa: 3.8, totalPoints: 57, totalUnits: 15, courses: [] },
+        ],
+        timetable: {},
+        notes: [],
+        exams: [],
     };
-}
+};
 
 let state = getInitialState();
-let quill = null;
+let gpaChartInstance = null;
+let quill;
 let currentEditingNoteId = null;
-let gpaChart = null;
 
-// IndexedDB setup (simplified integration as per previous steps)
-let db;
-const DB_NAME = 'UniPortalDB';
-const DB_VERSION = 11; // Must be incremented when object stores change
+function saveState() {
+    localStorage.setItem('uniportalState', JSON.stringify(state));
+}
+  // Show save indicator (optional but nice UX)
+    showSaveIndicator();
 
-function openIndexedDB() {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-        request.onupgradeneeded = (e) => {
-            const db = e.target.result;
-            // Create object stores if they don't exist
-            if (!db.objectStoreNames.contains('state')) {
-                db.createObjectStore('state', { keyPath: 'id' });
-            }
-            if (!db.objectStoreNames.contains('notes')) {
-                const notesStore = db.createObjectStore('notes', { keyPath: 'id' });
-                notesStore.createIndex('title', 'title', { unique: false });
-            }
-            if (!db.objectStoreNames.contains('avatars')) {
-                db.createObjectStore('avatars', { keyPath: 'id' });
-            }
-            console.log(`🔄 Database upgrade to version ${DB_VERSION} complete`);
-        };
-
-        request.onsuccess = (e) => {
-            db = e.target.result;
-            console.log('✅ IndexedDB opened successfully (version 11)');
-            resolve(db);
-        };
-
-        request.onerror = (e) => {
-            console.error('❌ IndexedDB error:', e.target.error);
-            reject(e.target.error);
-        };
-    });
+function showSaveIndicator() {
+    // Check if indicator already exists
+    let indicator = document.getElementById('save-indicator');
+    
+    if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.id = 'save-indicator';
+        indicator.innerHTML = '<i class="fas fa-check"></i> Saved';
+        indicator.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--color-success);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            z-index: 9999;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        `;
+        document.body.appendChild(indicator);
+    }
+    
+    // Trigger animation
+    setTimeout(() => indicator.style.opacity = '1', 10);
+    setTimeout(() => indicator.style.opacity = '0', 1500);
 }
 
-async function loadStateFromIndexedDB() {
-    try {
-        console.log('🔄 Checking for localStorage migration...');
-        const hasLocalStorageData = localStorage.getItem('uniportalState') !== null;
-        
-        const tx = db.transaction('state', 'readonly');
-        const store = tx.objectStore('state');
-        const dbState = await new Promise((resolve, reject) => {
-            const getRequest = store.get('current');
-            getRequest.onsuccess = (e) => {
-                resolve(e.target.result);
-            };
-            // Explicit error handler for the request
-            getRequest.onerror = (e) => {
-                reject(e.target.error || new Error('IndexedDB GET request failed with no explicit error.'));
-            };
-        });
+// --- MODAL FUNCTIONS ---
 
-        if (dbState) {
-             console.log('✅ IndexedDB already has data, skipping migration');
-            state = dbState.data;
-        } else if (hasLocalStorageData) {
-             console.log('⚠️ LocalStorage data found, migrating to IndexedDB...');
-            state = JSON.parse(localStorage.getItem('uniportalState'));
-            await saveState(); // Save to IndexedDB
-            localStorage.removeItem('uniportalState'); // Clean up old storage
-        }
-        
-        console.log('✅ State loaded from IndexedDB');
-        // Initial setup calls
-        updateUserNameDisplay(state.userName);
-        switchSection(getCurrentSectionHash());
-        applyTheme(state.theme);
-        renderNotifications();
-        renderExamList(); // Ensure exam list is rendered for countdown
-        
-    } catch (error) {
-        console.error('❌ Error loading state from IndexedDB:', error);
-        
-        // --- IMPROVED ERROR FEEDBACK ---
-        console.warn('⚠️ A critical IndexedDB error occurred, potentially due to corrupted stored data. Falling back to default state.');
-        alert('Data loading failed due to a browser storage error. Your data may be corrupted. You may need to clear your browser storage (Application > IndexedDB > UniPortalDB in Developer Tools) and reload for a clean start.');
-        // -------------------------------
-        
-        // Fallback to initial state if DB fails
-        state = getInitialState(); 
-        updateUserNameDisplay(state.userName);
-        applyTheme(state.theme);
-        switchSection('overview');
+function openModal(modalId) {
+    const modalElement = document.getElementById(modalId);
+    if (modalElement) {
+        modalElement.style.display = 'block';
+    } else {
+        console.warn(`Modal with ID "${modalId}" not found.`);
     }
 }
 
 
-function saveState() {
-    const tx = db.transaction('state', 'readwrite');
-    const store = tx.objectStore('state');
-    
-    // Ensure all required properties are present
-    const stateToSave = {
-        id: 'current',
-        data: {
-            userName: state.userName,
-            studentId: state.studentId,
-            major: state.major,
-            email: state.email,
-            currentSemester: state.currentSemester,
-            courses: state.courses || [],
-            semesters: state.semesters || [],
-            timetable: state.timetable || {},
-            notes: state.notes || [],
-            exams: state.exams || [],
-            notifications: state.notifications || [],
-            isFocusMode: state.isFocusMode,
-            theme: state.theme
-        }
-    };
+function closeModal(modalId) {
+    const modalElement = document.getElementById(modalId);
+    if (modalElement) {
+        modalElement.style.display = 'none';
+    }
+}
 
-    store.put(stateToSave);
-
-    return new Promise((resolve, reject) => {
-        tx.oncomplete = () => {
-            console.log('💾 State saved to IndexedDB');
-            resolve();
-        };
-        tx.onerror = () => {
-            console.error('❌ State save error:', tx.error);
-            reject(tx.error);
-        };
-    });
+function openDownloadModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        populateDownloadList();
+        modal.style.display = 'block';
+    }
 }
 
 // --- SECTION SWITCHING ---
 
-function getCurrentSectionHash() {
-    const hash = window.location.hash.substring(1);
-    // Use 'overview' as default if hash is empty or invalid
-    return hash || 'overview';
-}
-
 function switchSection(targetSectionId) {
-    if (state.isFocusMode && targetSectionId !== 'countdown') { 
-        alert('You are in Focus Mode! Please toggle it off to switch to other sections.');
-        return;
-    }
-    
-    const sections = document.querySelectorAll('.content-section');
-    sections.forEach(section => {
+    document.querySelectorAll('.content-section').forEach(section => {
+
         section.classList.remove('active');
     });
-    
+
     const targetSection = document.getElementById(targetSectionId);
     if (targetSection) {
         targetSection.classList.add('active');
-    } else {
-        console.error(`Section ID not found: ${targetSectionId}. Switching to overview.`);
-        document.getElementById('overview')?.classList.add('active');
-        window.location.hash = 'overview';
-        targetSectionId = 'overview';
+        state.currentSection = targetSectionId;
     }
 
-    // Update sidebar active link
-    document.querySelectorAll('.sidebar-nav .nav-item').forEach(link => {
-        link.classList.remove('active');
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
     });
-    
-    // Select the link that has the matching data-section attribute
     const activeLink = document.querySelector(`.nav-item[data-section="${targetSectionId}"]`);
     if (activeLink) {
         activeLink.classList.add('active');
     }
 
-    // Call the appropriate render function
     if (targetSectionId === 'overview') renderOverview();
-    if (targetSectionId === 'gpa-calc') renderGPATable(); 
-    if (targetSectionId === 'cgpa-calc') renderCGPAHistory(); 
+    if (targetSectionId === 'gpa-calc') renderGPATable();
+    if (targetSectionId === 'cgpa-calc') renderCGPAHistory();
     if (targetSectionId === 'timetable') renderTimetable();
     if (targetSectionId === 'notes') renderNotesGrid();
-    if (targetSectionId === 'countdown') renderExamList(); 
-    
+    if (targetSectionId === 'countdown') renderExamList();
     saveState();
 }
 
@@ -834,97 +705,109 @@ function updateUserNameDisplay(newName) {
 function setupThemeToggle() {
     const themeToggle = document.getElementById('theme-toggle');
     const body = document.body;
+    
+    if (!themeToggle) return;
 
-    if (themeToggle) {
-        themeToggle.addEventListener('click', () => {
-            const newTheme = body.classList.contains('dark-theme') ? 'light' : 'dark';
-            applyTheme(newTheme);
-            state.theme = newTheme;
-            saveState();
-        });
+    if (state.theme === 'dark') {
+        body.classList.add('dark-theme');
+        themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+    } else {
+        themeToggle.innerHTML = '<i class="fas fa-moon"></i>';
     }
-}
 
-function applyTheme(theme) {
-    const body = document.body;
-    const icon = document.querySelector('#theme-toggle i');
-    
-    body.classList.remove('light-theme', 'dark-theme');
-    body.classList.add(`${theme}-theme`);
-    
-    if (icon) {
-        icon.classList.remove('fa-sun', 'fa-moon');
-        icon.classList.add(theme === 'dark' ? 'fa-sun' : 'fa-moon');
-    }
-    // Re-render chart to pick up new theme colors
-    if (gpaChart) {
-        renderCGPAChart(state.semesters);
-    }
-}
-
-
-// --- NOTIFICATIONS RENDERING ---
-
-function renderNotifications() {
-    const notificationList = document.getElementById('notification-list'); // FIX: changed from notification-log-list
-    const notificationBadge = document.getElementById('notification-badge'); // FIX: changed from notification-count
-    const noNotificationsMessage = document.querySelector('#notification-dropdown .no-notifications');
-    
-    if (!notificationList || !notificationBadge) return;
-    
-    notificationList.innerHTML = '';
-    
-    if (state.notifications.length === 0) {
-        noNotificationsMessage.style.display = 'block';
-        notificationBadge.classList.add('hidden');
-        notificationBadge.textContent = 0;
-        return;
-    }
-    
-    noNotificationsMessage.style.display = 'none';
-    notificationBadge.classList.remove('hidden');
-    notificationBadge.textContent = state.notifications.length;
-    
-    state.notifications.forEach(notif => {
-        const li = document.createElement('li');
-        li.innerHTML = `
-            <i class="fas fa-circle-info"></i>
-            <div>
-                <p>${notif.message}</p>
-                <small>${notif.time}</small>
-            </div>
-        `;
-        notificationList.appendChild(li);
+    themeToggle.addEventListener('click', () => {
+        if (body.classList.contains('dark-theme')) {
+            body.classList.remove('dark-theme');
+            themeToggle.innerHTML = '<i class="fas fa-moon"></i>';
+            state.theme = 'light';
+        } else {
+            body.classList.add('dark-theme');
+            themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+            state.theme = 'dark';
+        }
+        saveState();
+        // Re-render chart if active to apply theme colors
+        if (state.currentSection === 'overview' && gpaChartInstance) {
+            renderOverview();
+        }
     });
 }
 
-function setupNotificationListeners() {
-    const bell = document.getElementById('notification-bell');
-    const dropdown = document.getElementById('notification-dropdown');
-    const clearBtn = document.getElementById('clear-notifications-btn');
-    
-    if (bell && dropdown) {
-        bell.addEventListener('click', (e) => {
-            e.stopPropagation();
-            dropdown.classList.toggle('active');
-        });
+// --- NOTIFICATIONS RENDERING ---
 
-        document.addEventListener('click', (e) => {
-            if (!dropdown.contains(e.target) && !bell.contains(e.target)) {
-                dropdown.classList.remove('active');
-            }
+// Helper function to render a time stamp nicely
+function getTimeAgo(date) {
+    const now = new Date();
+    const then = new Date(date);
+    const diffInSeconds = Math.floor((now - then) / 1000);
+    
+    if (diffInSeconds < 60) return `${diffInSeconds} seconds ago`;
+    
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    if (diffInMinutes < 60) return `${diffInMinutes} minutes ago`;
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours} hours ago`;
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 7) return `${diffInDays} days ago`;
+    
+    return then.toLocaleDateString();
+}
+
+function renderNotifications() {
+    const notificationList = document.getElementById('notification-list');
+    const notificationBadge = document.getElementById('notification-badge');
+    const noNotifications = document.querySelector('.no-notifications');
+    const dashboardList = document.getElementById('notification-list-dashboard');
+
+    if (!notificationList || !notificationBadge || !noNotifications || !dashboardList) return;
+
+    // In-App Dropdown List
+    notificationList.innerHTML = '';
+    const unreadCount = state.notifications.length; 
+
+    if (unreadCount > 0) {
+        state.notifications.forEach(note => {
+            const li = document.createElement('li');
+            li.innerHTML = `<p>${note.message}</p><small>${note.time}</small>`;
+            notificationList.appendChild(li);
         });
+        noNotifications.style.display = 'none';
+        notificationBadge.textContent = unreadCount;
+        notificationBadge.classList.remove('hidden');
+    } else {
+        noNotifications.style.display = 'block';
+        notificationBadge.classList.add('hidden');
     }
 
+    // Dashboard Widget List (show max 5)
+    dashboardList.innerHTML = '';
+    if (unreadCount > 0) {
+        state.notifications.slice(0, 5).forEach(note => {
+            const li = document.createElement('li');
+            li.innerHTML = `<i class="fas fa-circle-info"></i> ${note.message}`;
+            dashboardList.appendChild(li);
+        });
+        dashboardList.querySelector('.no-data')?.remove();
+    } else {
+        dashboardList.innerHTML = '<li class="no-data">No recent alerts.</li>';
+    }
+}
+
+function setupNotificationClear() {
+    const clearBtn = document.getElementById('clear-notifications-btn');
     if (clearBtn) {
         clearBtn.addEventListener('click', () => {
             if (state.notifications.length > 0) {
                 state.notifications = [];
                 saveState();
                 renderNotifications();
-                clearBtn.textContent = 'Cleared All';
+                clearBtn.textContent = 'Cleared!';
+                clearBtn.style.backgroundColor = 'var(--color-success)';
+
                 setTimeout(() => {
-                    clearBtn.textContent = 'Clear';
+                    clearBtn.innerHTML = '<i class="fas fa-trash"></i> Clear All';
                 }, 1500);
             } else {
                 alert('No notifications to clear');
@@ -934,129 +817,245 @@ function setupNotificationListeners() {
 }
 
 // --- OVERVIEW SECTION ---
-
 function renderOverview() {
     const now = new Date();
     const { gpa: currentGpa } = calculateGPA(state.courses);
     const { cgpa: cumulativeCgpa } = calculateCGPA();
-
-    // Core Overview elements (IDs match)
+    
     const totalCoursesCount = document.getElementById('total-courses-count');
     const currentGpaDisplay = document.getElementById('current-gpa-display');
     const cumulativeCgpaDisplay = document.getElementById('cumulative-cgpa-display');
-    
-    // Updated IDs for the Overview cards based on user's HTML
-    const upcomingClassDisplay = document.getElementById('upcoming-class-display'); // FIX: changed from nextClassDisplay
-    const daysToExamDisplay = document.getElementById('days-to-exam-display'); // FIX: changed from nextExamDisplay
-    
-    // Elements not present in the new HTML, check for them and skip if missing
-    const timeUntilClass = document.getElementById('time-until-class'); 
-    const examCountdown = document.getElementById('exam-countdown');
-    const academicStandingDisplay = document.getElementById('academic-standing-display');
-    
 
-    // Initial check to avoid the "DOM elements missing" error for the main IDs
-    if (!totalCoursesCount || !currentGpaDisplay || !cumulativeCgpaDisplay || !upcomingClassDisplay || !daysToExamDisplay) {
-        console.warn('⚠️ Overview DOM elements missing or mismatched in the HTML structure. Cannot render overview content.');
-        return; 
-    }
-    
-    // 1. GPA/CGPA Summary
     if (totalCoursesCount) totalCoursesCount.textContent = state.courses.length;
     if (currentGpaDisplay) currentGpaDisplay.textContent = state.courses.length > 0 ? currentGpa.toFixed(2) : 'N/A';
     if (cumulativeCgpaDisplay) cumulativeCgpaDisplay.textContent = state.semesters.length > 0 ? cumulativeCgpa.toFixed(2) : 'N/A';
-    if (academicStandingDisplay) academicStandingDisplay.textContent = `Academic Standing: ${getAcademicStanding(cumulativeCgpa)}`;
 
-    // 2. Upcoming Class Logic
+    // Upcoming Class
     const today = now.toLocaleString('en-us', { weekday: 'long' });
     const todayClasses = state.timetable[today] || [];
-    let nextClass = null;
-    let timeUntil = Infinity;
-    
-    // Convert current time to minutes
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    
-    // Find the next class for today
-    todayClasses.forEach(classItem => {
-        const classTimeMinutes = parseTimeToMinutes(classItem.time);
-        if (classTimeMinutes !== null) {
-            const minutesUntilClass = classTimeMinutes - nowMinutes;
-            
-            // Only consider classes that haven't passed (or are just starting/passed a few minutes ago)
-            if (minutesUntilClass >= -10 && minutesUntilClass < timeUntil) {
-                timeUntil = minutesUntilClass;
-                nextClass = classItem;
-            }
-        }
-    });
+    const currentTime = now.getHours() * 60 + now.getMinutes();
 
-    if (upcomingClassDisplay) {
-        if (nextClass) {
-            // Display: CourseCode (Time) - e.g., MTH 201 (9:00 AM)
-            upcomingClassDisplay.textContent = `${nextClass.code} at ${nextClass.time}`;
-        } else {
-            upcomingClassDisplay.textContent = 'Nothing Today';
-        }
-    }
-    if (timeUntilClass) {
-        timeUntilClass.textContent = nextClass ? `(${timeUntil} min)` : '--';
-    }
-    
-    // 3. Days to Next Exam Logic
-    let nextExam = null;
-    let minDaysUntil = Infinity;
-    const todayDate = new Date();
-    todayDate.setHours(0, 0, 0, 0);
+    const upcomingClass = todayClasses
+        .map(cls => {
+            const timeParts = cls.time.match(/(\d+):(\d+) (AM|PM)/);
+            if (!timeParts) return null;
 
-    if (state.exams && state.exams.length > 0) {
-        state.exams.forEach(exam => {
-            const examDate = new Date(exam.date + "T00:00:00");
-            const diffTime = examDate - todayDate;
-            const daysUntil = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            
-            // Only consider exams in the future or today (daysUntil >= 0)
-            if (daysUntil >= 0 && daysUntil < minDaysUntil) {
-                minDaysUntil = daysUntil;
-                nextExam = exam;
+            let h = parseInt(timeParts[1]);
+            const m = parseInt(timeParts[2]);
+            const meridiem = timeParts[3];
+
+            if (meridiem === 'PM' && h !== 12) h += 12;
+            if (meridiem === 'AM' && h === 12) h = 0;
+
+            const classMinutes = h * 60 + m;
+
+            // Only consider classes that start in the future
+            if (classMinutes > currentTime) {
+                return { ...cls, classMinutes };
             }
-        });
+            return null;
+        })
+        .filter(cls => cls !== null)
+        .sort((a, b) => a.classMinutes - b.classMinutes)[0]; // Get the nearest upcoming class
+
+    const summaryCard = document.getElementById('upcoming-class-display');
+    if (upcomingClass) {
+        summaryCard.textContent = `${upcomingClass.code} at ${upcomingClass.time}`;
+    } else {
+        summaryCard.textContent = 'Nothing Today';
     }
+
+    // --- FIX #2: Days to Next Exam ---
+    const daysToExamDisplay = document.getElementById('days-to-exam-display');
 
     if (daysToExamDisplay) {
-        if (nextExam) {
-            daysToExamDisplay.textContent = nextExam.name;
+        if (state.exams && state.exams.length > 0) {
+            const todayDate = new Date();
+            todayDate.setHours(0, 0, 0, 0);
+
+            // Find the next upcoming exam
+            const upcomingExams = state.exams
+                .map(exam => {
+                    // Create date object from stored date string (exam.date)
+                    const examDate = new Date(exam.date + "T00:00:00"); 
+                    // Calculate difference in days
+                    const diffTime = examDate - todayDate;
+                    const daysUntil = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    return { daysUntil, exam };
+                })
+                .filter(e => e.daysUntil >= 0) // Only today (0) or future exams
+                .sort((a, b) => a.daysUntil - b.daysUntil); // Sort by nearest
+
+            if (upcomingExams.length > 0) {
+                // Set the text content to ONLY the number of days
+                daysToExamDisplay.textContent = upcomingExams[0].daysUntil; 
+            } else {
+                daysToExamDisplay.textContent = 'N/A';
+            }
         } else {
             daysToExamDisplay.textContent = 'N/A';
         }
     }
-    if (examCountdown) {
-        if (nextExam) {
-            if (minDaysUntil === 0) {
-                examCountdown.textContent = 'TODAY!';
-            } else if (minDaysUntil === 1) {
-                examCountdown.textContent = 'TOMORROW!';
-            } else {
-                examCountdown.textContent = `${minDaysUntil} Days`;
-            }
-        } else {
-            examCountdown.textContent = '--';
-        }
+    // --- END FIX #2 ---
+
+    // Motivational Quote logic
+    const quoteElement = document.getElementById('motivational-quote');
+    const todayQuote = getDailyQuote();
+    if (quoteElement) quoteElement.textContent = todayQuote;
+
+    // --- FIX #4 (Part 2): Ensure GPA Chart is rendered ---
+    // Destroy previous instance to prevent Chart.js errors when redrawing
+    if (gpaChartInstance) {
+        gpaChartInstance.destroy();
     }
+    createGPAChart(state.semesters); 
+    // --- END FIX #4 ---
+
+    renderRecentNotes();
+    // This is where renderUpcomingExams should be if you had a separate function for that
 }
 
-// Helper to convert 24hr time (HH:MM) to 12hr (H:MM AM/PM)
-function convertTo12Hour(time24) {
-    if (!time24) return '';
-    let [h, m] = time24.split(':');
-    h = parseInt(h);
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    h = h % 12;
-    h = h ? h : 12; // the hour '0' should be '12'
-    return `${h}:${m} ${ampm}`;
+function renderRecentNotes() {
+    const recentNotesList = document.getElementById('recent-notes-list');
+    if (!recentNotesList) return;
+
+    recentNotesList.innerHTML = '';
+    const recentNotes = [...state.notes].sort((a, b) => b.id - a.id).slice(0, 3);
+
+    if (recentNotes.length === 0) {
+        recentNotesList.innerHTML = '<p class="no-data">No notes saved yet.</p>';
+        return;
+    }
+
+    recentNotes.forEach(note => {
+        const item = document.createElement('div');
+        item.className = 'recent-note-item';
+        item.setAttribute('data-id', note.id);
+        
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = note.content;
+        const snippet = tempDiv.textContent.substring(0, 50).trim() + '...';
+
+        item.innerHTML = `
+            <h4>${note.title}</h4>
+            <p>${snippet}</p>
+            <small>${note.date}</small>
+        `;
+        
+        item.addEventListener('click', () => {
+            openNoteEditor(note.id);
+        });
+        
+        recentNotesList.appendChild(item);
+    });
+}
+
+function getDailyQuote() {
+    const quotes = [
+        "The best way to predict the future is to create it.",
+        "Success is not final, failure is not fatal: it is the courage to continue that counts.",
+        "The beautiful thing about learning is that no one can take it away from you.",
+        "Strive for progress, not perfection.",
+        "Discipline is the bridge between goals and success.",
+        "Your education is a dress rehearsal for a life that is yours to lead.",
+        "The mind is not a vessel to be filled, but a fire to be kindled.",
+        "The only place where success comes before work is in the dictionary."
+    ];
+    // Simple daily selection based on the day of the year
+    const day = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
+    return quotes[day % quotes.length];
+}
+
+// --- CHART.JS SETUP (FIX #4) ---
+
+function createGPAChart(semesters) {
+    const ctx = document.getElementById('gpa-progress-chart-canvas');
+    if (!ctx) return;
+
+    const sortedSemesters = [...semesters].sort((a, b) => {
+        // Simple sort assuming names are like 'Fall 2023' or rely on index if names are not unique/sortable
+        if (a.name.match(/\d{4}/) && b.name.match(/\d{4}/)) {
+             return a.name.localeCompare(b.name);
+        }
+        return 0;
+    });
+
+    const labels = sortedSemesters.map(sem => sem.name);
+    const gpaValues = sortedSemesters.map(sem => sem.gpa);
+
+    // Get theme colors for responsive chart styling
+    const bodyStyles = getComputedStyle(document.body);
+    const primaryColor = bodyStyles.getPropertyValue('--color-primary').trim();
+    const accentColor = bodyStyles.getPropertyValue('--color-accent').trim();
+    const textColor = bodyStyles.getPropertyValue('--color-text').trim();
+    const borderColor = bodyStyles.getPropertyValue('--color-border').trim();
+
+    // Destroy existing chart instance before creating a new one (Managed in renderOverview now)
+    // if (gpaChartInstance) gpaChartInstance.destroy(); 
+
+    gpaChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Semester GPA',
+                data: gpaValues,
+                borderColor: primaryColor,
+                backgroundColor: primaryColor + '40',
+                borderWidth: 3,
+                tension: 0.4,
+                fill: true,
+                pointBackgroundColor: accentColor,
+                pointBorderColor: primaryColor,
+                pointBorderWidth: 2,
+                pointRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    min: 0,
+                    max: 5.0,
+                    title: {
+                        display: true,
+                        text: 'GPA',
+                        color: textColor
+                    },
+                    grid: {
+                        color: borderColor,
+                    },
+                    ticks: {
+                        color: textColor
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        color: textColor
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.parsed.y.toFixed(2);
+                        }
+                    }
+                }
+            }
+        }
+    });
 }
 
 // --- GPA CALCULATOR ---
-
 function calculateGPA(courses) {
     if (courses.length === 0) return { gpa: 0, totalPoints: 0, totalUnits: 0 };
 
@@ -1064,98 +1063,77 @@ function calculateGPA(courses) {
     let totalUnits = 0;
 
     courses.forEach(course => {
-        const units = parseInt(course.units);
-        const grade = course.grade.toUpperCase();
-        
-        if (!isNaN(units) && units > 0 && GRADE_POINTS.hasOwnProperty(grade)) {
-            totalPoints += units * GRADE_POINTS[grade];
-            totalUnits += units;
+        const gradeValue = GRADE_POINTS[course.grade.toUpperCase()];
+        if (gradeValue !== undefined) {
+            totalPoints += gradeValue * course.units;
+            totalUnits += course.units;
         }
     });
 
-    const gpa = totalUnits > 0 ? totalPoints / totalUnits : 0;
+    const gpa = totalUnits === 0 ? 0 : totalPoints / totalUnits;
     return { gpa, totalPoints, totalUnits };
 }
 
 function getAcademicStanding(gpa) {
-    if (gpa >= 4.5) return 'First Class Honours 🌟';
-    if (gpa >= 3.5) return 'Second Class Honours (Upper Division) ⬆️';
-    if (gpa >= 2.4) return 'Second Class Honours (Lower Division) ⬇️';
-    if (gpa >= 1.5) return 'Third Class Honours 🥉';
+    if (gpa >= 4.5) return 'Distinction';
+    if (gpa >= 3.5) return 'Great';
+    if (gpa >= 2.5) return 'Good';
     if (gpa >= 1.0) return 'Pass';
-    return 'Probation/Fail';
+    return 'Probation';
 }
 
 function renderGPATable() {
-    const tableBody = document.getElementById('gpa-course-list'); // FIX: changed from gpa-courses-body
-    if (!tableBody) return;
-    
-    tableBody.innerHTML = '';
+    const courseList = document.getElementById('gpa-course-list');
+    if (!courseList) return;
+
+    courseList.innerHTML = '';
     
     if (state.courses.length === 0) {
-        handleAddCourse(); // Add an initial empty row
+        courseList.innerHTML = '<tr><td colspan="4" class="no-data">Click "Add Course" to begin.</td></tr>';
         return;
     }
-    
+
     state.courses.forEach((course, index) => {
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td><input type="text" data-field="code" data-index="${index}" value="${course.code || ''}" placeholder="MTH 101" class="course-input code-input"></td>
-            <td><input type="text" data-field="subject" data-index="${index}" value="${course.subject || ''}" placeholder="Calculus" class="course-input subject-input"></td>
-            <td><input type="number" data-field="units" data-index="${index}" value="${course.units || ''}" min="1" max="6" placeholder="3" class="course-input units-input"></td>
+            <td><input type="text" value="${course.code}" data-field="code" data-index="${index}" placeholder="e.g., CSC101" class="input-code" required></td>
+            <td><input type="number" value="${course.units}" data-field="units" data-index="${index}" min="1" max="10" placeholder="Units" class="input-units" required></td>
             <td>
-                <select data-field="grade" data-index="${index}" class="course-input grade-select">
-                    <option value="">--</option>
-                    ${Object.keys(GRADE_POINTS).map(grade => `
-                        <option value="${grade}" ${course.grade?.toUpperCase() === grade ? 'selected' : ''}>${grade}</option>
-                    `).join('')}
+                <select data-field="grade" data-index="${index}" class="select-grade" required>
+                    ${Object.keys(GRADE_POINTS).map(grade => 
+                        `<option value="${grade}" ${course.grade.toUpperCase() === grade ? 'selected' : ''}>${grade}</option>`
+                    ).join('')}
                 </select>
             </td>
-            <td class="calculated-points">${
-                (course.units && course.grade && GRADE_POINTS[course.grade.toUpperCase()])
-                ? (course.units * GRADE_POINTS[course.grade.toUpperCase()]).toFixed(1)
-                : '0.0'
-            }</td>
             <td><button class="btn btn-danger btn-small remove-course-btn" data-index="${index}"><i class="fas fa-trash"></i></button></td>
         `;
-        tableBody.appendChild(row);
+        courseList.appendChild(row);
     });
-    
-    // Add event listeners for all input fields and the remove button
-    tableBody.querySelectorAll('.course-input').forEach(input => {
+
+    // Attach listeners dynamically
+    courseList.querySelectorAll('input, select').forEach(input => {
         input.addEventListener('change', updateCourseData);
-        input.addEventListener('keyup', updateCourseData);
     });
-    tableBody.querySelectorAll('.remove-course-btn').forEach(button => {
+    courseList.querySelectorAll('.remove-course-btn').forEach(button => {
         button.addEventListener('click', removeCourse);
     });
-    
-    handleCalculateGPA(); // Recalculate and render results after rendering table
+
+    // Calculate initial GPA on render
+    handleCalculateGPA();
 }
 
-
-function handleAddCourse() {
-    state.courses.push({ code: '', subject: '', units: null, grade: '' });
+function addCourse() {
+    const newCourse = { code: '', units: 3, grade: 'A' };
+    state.courses.push(newCourse);
     renderGPATable();
-    
-    // Scroll to the new row
-    const tableBody = document.getElementById('gpa-course-list'); // FIX: changed from gpa-courses-body
-    if (tableBody) {
-        tableBody.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }
+    saveState();
 }
 
 function updateCourseData(e) {
     const index = parseInt(e.target.getAttribute('data-index'));
     const field = e.target.getAttribute('data-field');
-    
-    let value = e.target.value;
-    if (field === 'units') {
-        value = parseInt(e.target.value) || null;
-    } else if (field === 'grade') {
-        value = value.toUpperCase();
-    }
-    
+    const value = field === 'units' ? parseInt(e.target.value) : e.target.value;
+
     if (state.courses[index]) {
         state.courses[index][field] = value;
         handleCalculateGPA();
@@ -1176,137 +1154,152 @@ function handleCalculateGPA() {
     const gpaResult = document.getElementById('gpa-result');
     const academicStanding = document.getElementById('academic-standing');
     const saveSemesterBtn = document.getElementById('save-semester-btn');
-    
-    // Also update the points column in the table if it exists
-    const tableBody = document.getElementById('gpa-course-list'); // FIX: changed from gpa-courses-body
-    if (tableBody) {
-        tableBody.querySelectorAll('tr').forEach((row, index) => {
-            const course = state.courses[index];
-            const pointsCell = row.querySelector('.calculated-points');
-            if (pointsCell && course) {
-                const units = parseInt(course.units);
-                const grade = course.grade?.toUpperCase();
-                const points = (units && grade && GRADE_POINTS[grade]) 
-                    ? (units * GRADE_POINTS[grade]).toFixed(1)
-                    : '0.0';
-                pointsCell.textContent = points;
-            }
-        });
-    }
+    const confetti = document.getElementById('confetti-overlay');
+
 
     if (totalUnits === 0) {
         if (gpaFeedback) gpaFeedback.textContent = "Add courses and units to calculate your GPA.";
         if (gpaResult) gpaResult.textContent = 'N/A';
         if (academicStanding) academicStanding.textContent = 'Pending';
         if (saveSemesterBtn) saveSemesterBtn.disabled = true;
+        if (confetti) confetti.classList.remove('active');
         return;
     }
-    
+
     if (gpaResult) gpaResult.textContent = gpa.toFixed(2);
-    const standing = getAcademicStanding(gpa);
-    if (academicStanding) academicStanding.textContent = standing;
-    
-    if (gpaFeedback) {
-        if (gpa >= 4.5) gpaFeedback.textContent = "Outstanding work! Keep up the First Class performance! 🚀";
-        else if (gpa >= 3.5) gpaFeedback.textContent = "Excellent job! You're on track for an Upper Division degree.";
-        else if (gpa >= 2.4) gpaFeedback.textContent = "Good progress! Focus on boosting that GPA next semester.";
-        else gpaFeedback.textContent = "It's time to create a study plan. You can do better! 💪";
-    }
-    
+    if (academicStanding) academicStanding.textContent = getAcademicStanding(gpa);
     if (saveSemesterBtn) saveSemesterBtn.disabled = false;
 
-    // Update the Overview page summary
-    renderOverview();
+    if (gpa >= 4.0) {
+        if (gpaFeedback) gpaFeedback.textContent = "Excellent work! Keep setting high standards.";
+        if (confetti) {
+             confetti.classList.add('active');
+             setTimeout(() => confetti.classList.remove('active'), 5000);
+        }
+        
+    } else if (gpa >= 3.0) {
+        if (gpaFeedback) gpaFeedback.textContent = "Good job! A little more effort for a better class.";
+        if (confetti) confetti.classList.remove('active');
+
+    } else {
+        if (gpaFeedback) gpaFeedback.textContent = "Time to review your strategy and improve next time.";
+        if (confetti) confetti.classList.remove('active');
+    }
 }
 
 function handleSaveSemester() {
-    const { gpa, totalPoints, totalUnits } = calculateGPA(state.courses);
-    
-    if (totalUnits === 0 || state.courses.length === 0) {
-        alert("Cannot save an empty semester. Add courses and calculate your GPA first.");
+    const semName = prompt("Enter a name for this semester (e.g., Fall 2024):");
+    if (!semName || semName.trim() === "") {
+        alert("Semester name cannot be empty.");
         return;
     }
     
-    const semesterName = `Semester ${state.currentSemester}`;
+    const { gpa, totalPoints, totalUnits } = calculateGPA(state.courses);
+
+    if (totalUnits === 0) {
+        alert("Cannot save an empty semester.");
+        return;
+    }
     
+    // Check for duplicate name
+    if (state.semesters.some(sem => sem.name.toLowerCase() === semName.trim().toLowerCase())) {
+        alert(`A semester named "${semName.trim()}" already exists. Please use a unique name.`);
+        return;
+    }
+
     const newSemester = {
-        id: Date.now().toString(),
-        name: semesterName,
-        gpa: gpa,
+        name: semName.trim(),
+        gpa: parseFloat(gpa.toFixed(2)),
         totalPoints: totalPoints,
         totalUnits: totalUnits,
-        courses: [...state.courses] // Save a copy of the courses
+        // Save a copy of the courses for historical record
+        courses: JSON.parse(JSON.stringify(state.courses)) 
     };
     
     state.semesters.push(newSemester);
-    state.currentSemester += 1; // Increment semester counter
-    state.courses = []; // Clear current courses
+    state.courses = []; // Clear current courses for the next semester
     
     saveState();
-    renderGPATable(); // Re-render the GPA table
-    renderCGPAHistory(); // Re-render CGPA history
-    renderOverview(); // Update overview
+    renderGPATable(); // Rerender to show cleared table
+    renderCGPAHistory(); // Update CGPA history
+    renderOverview(); // Update dashboard chart/CGPA
     
-    // Confetti effect!
-    const confettiOverlay = document.getElementById('confetti-overlay');
-    if (confettiOverlay) {
-        confettiOverlay.style.display = 'block';
-        setTimeout(() => {
-            confettiOverlay.style.display = 'none';
-        }, 3000);
-    }
-    
-    alert(`✅ ${semesterName} saved successfully! Current CGPA updated.`);
+    alert(`✅ Semester "${newSemester.name}" saved successfully!`);
 }
 
 
 // --- CGPA CALCULATOR ---
-
 function calculateCGPA() {
     let cumulativePoints = 0;
     let cumulativeUnits = 0;
-    
+
+    // Sum points and units from saved semesters
     state.semesters.forEach(sem => {
         cumulativePoints += sem.totalPoints;
         cumulativeUnits += sem.totalUnits;
     });
+
+    // Also include points and units from the *current* semester if courses exist
+    const { totalPoints: currentPoints, totalUnits: currentUnits } = calculateGPA(state.courses);
+
+    cumulativePoints += currentPoints;
+    cumulativeUnits += currentUnits;
+
+    const cgpa = cumulativeUnits === 0 ? 0 : cumulativePoints / cumulativeUnits;
     
-    const cgpa = cumulativeUnits > 0 ? cumulativePoints / cumulativeUnits : 0;
     return { cgpa, cumulativePoints, cumulativeUnits };
+}
+
+function handleManualSemesterAdd(e) {
+    e.preventDefault();
+    
+    const nameInput = document.getElementById('manual-sem-name');
+    const gpaInput = document.getElementById('manual-sem-gpa');
+    const unitsInput = document.getElementById('manual-sem-units');
+    
+    const name = nameInput.value.trim();
+    const gpa = parseFloat(gpaInput.value);
+    const units = parseInt(unitsInput.value);
+    
+    if (state.semesters.some(sem => sem.name.toLowerCase() === name.toLowerCase())) {
+        alert(`A semester named "${name}" already exists. Please use a unique name.`);
+        return;
+    }
+
+    if (!name || isNaN(gpa) || isNaN(units) || gpa < 0 || gpa > 5 || units < 1) {
+        alert("Please enter valid data (GPA between 0-5.0, Units > 0).");
+        return;
+    }
+    
+    const totalPoints = gpa * units;
+
+    const newSemester = {
+        name: name,
+        gpa: parseFloat(gpa.toFixed(2)),
+        totalPoints: totalPoints,
+        totalUnits: units,
+        courses: [] // Manual semesters don't track individual courses
+    };
+    
+    state.semesters.push(newSemester);
+    saveState();
+    renderCGPAHistory();
+    closeModal('cgpa-manual-modal');
+    e.target.reset();
 }
 
 function renderCGPAHistory() {
     const list = document.getElementById('cgpa-semester-list');
     if (!list) return;
-    
-    const { cgpa, cumulativeUnits } = calculateCGPA();
-    const cgpaResultDisplay = document.getElementById('cgpa-result-display');
-    const cgpaTotalUnits = document.getElementById('cgpa-total-units');
-    const cgpaAcademicStanding = document.getElementById('cgpa-academic-standing');
-    const progressCircle = document.getElementById('cgpa-progress-circle');
 
     list.innerHTML = '';
-    
+
     if (state.semesters.length === 0) {
         list.innerHTML = '<p class="no-data">No semesters saved yet. Calculate and save a GPA first.</p>';
+        handleCalculateCGPA(); // Ensure CGPA displays 0.00
+        return;
     }
 
-    // Update CGPA summary card (if elements exist in this section)
-    if (cgpaResultDisplay) cgpaResultDisplay.textContent = cgpa.toFixed(2);
-    if (cgpaTotalUnits) cgpaTotalUnits.textContent = cumulativeUnits;
-    if (cgpaAcademicStanding) cgpaAcademicStanding.textContent = getAcademicStanding(cgpa);
-    
-    if (progressCircle) {
-        let color = '#ccc';
-        if (cgpa >= 4.5) color = '#22c55e'; // Green - First Class
-        else if (cgpa >= 3.5) color = '#f59e0b'; // Amber - Upper
-        else if (cgpa >= 2.4) color = '#3b82f6'; // Blue - Lower
-        
-        const percentage = (cgpa / 5.0) * 100;
-        progressCircle.style.background = `conic-gradient(${color} ${percentage}%, #eee ${percentage}%)`;
-    }
-    
-    // Render semester cards
     state.semesters.forEach((sem, index) => {
         const card = document.createElement('div');
         card.className = 'semester-card';
@@ -1322,129 +1315,144 @@ function renderCGPAHistory() {
     list.querySelectorAll('.remove-sem-btn').forEach(btn => {
         btn.addEventListener('click', removeSemester);
     });
+
+    handleCalculateCGPA();
+}
+
+function handleCalculateCGPA() {
+    const { cgpa, cumulativeUnits } = calculateCGPA();
+    const cgpaResultDisplay = document.getElementById('cgpa-result-display');
+    const cgpaTotalUnits = document.getElementById('cgpa-total-units');
+    const cgpaAcademicStanding = document.getElementById('cgpa-academic-standing');
+    const progressCircle = document.getElementById('cgpa-progress-circle');
+
+    if (cgpaResultDisplay) cgpaResultDisplay.textContent = cgpa.toFixed(2);
+    if (cgpaTotalUnits) cgpaTotalUnits.textContent = cumulativeUnits;
+    if (cgpaAcademicStanding) cgpaAcademicStanding.textContent = getAcademicStanding(cgpa);
+
+    if (progressCircle) {
+        let color;
+        if (cgpa >= 4.0) color = 'var(--color-success)';
+        else if (cgpa >= 3.0) color = 'var(--color-accent)';
+        else color = 'var(--color-danger)';
+        progressCircle.style.borderColor = color;
+    }
+
+    renderOverview();
 }
 
 function removeSemester(e) {
     const index = parseInt(e.currentTarget.getAttribute('data-index'));
-    state.semesters.splice(index, 1);
-    saveState();
-    renderCGPAHistory();
-    renderOverview();
-    alert("Semester removed. CGPA recalculated.");
+    if (confirm(`Are you sure you want to remove ${state.semesters[index].name}?`)) {
+        state.semesters.splice(index, 1);
+        renderCGPAHistory();
+        renderOverview();
+        saveState();
+        alert("Semester removed.");
+    }
 }
 
-function handleManualSemesterAdd(e) {
-    e.preventDefault();
-    const nameInput = document.getElementById('manual-sem-name');
-    const pointsInput = document.getElementById('manual-total-points');
-    const unitsInput = document.getElementById('manual-total-units');
-
-    const name = nameInput.value.trim();
-    const totalPoints = parseFloat(pointsInput.value);
-    const totalUnits = parseInt(unitsInput.value);
-
-    if (totalUnits <= 0) {
-        alert("Total Units must be greater than zero.");
-        return;
-    }
-    
-    if (totalPoints < 0 || totalPoints > totalUnits * 5) {
-        alert("Total Points seem invalid for the number of units (max 5.0 per unit).");
-        return;
-    }
-
-    const gpa = totalPoints / totalUnits;
-
-    const newSemester = {
-        id: Date.now().toString(),
-        name: `${name} (Manual)`,
-        gpa: gpa,
-        totalPoints: totalPoints,
-        totalUnits: totalUnits,
-        courses: []
-    };
-
-    state.semesters.push(newSemester);
-    saveState();
-    renderCGPAHistory();
-    renderOverview();
-    closeModal('cgpa-manual-modal');
-    alert(`Manual semester "${name}" added successfully! GPA: ${gpa.toFixed(2)}`);
-}
 
 // --- TIMETABLE ---
 
+function convertTo12Hour(time24) {
+    if (!time24) return '';
+    const [h, m] = time24.split(':').map(Number);
+    const time = new Date(0, 0, 0, h, m);
+    return time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
 function renderTimetable() {
     const tbody = document.getElementById('timetable-body');
+    const noDataMessage = document.getElementById('no-timetable-data');
     if (!tbody) return;
     
     tbody.innerHTML = '';
     
-    // Group classes by time slot
-    const timeSlots = {};
-    DAYS_OF_WEEK.forEach(day => {
-        const classes = state.timetable[day] || [];
-        classes.forEach(cls => {
-            if (!timeSlots[cls.time]) {
-                timeSlots[cls.time] = {};
-            }
-            timeSlots[cls.time][day] = cls;
-        });
-    });
-
-    // Sort time slots
-    const sortedTimes = Object.keys(timeSlots).sort((a, b) => {
-        return parseTimeToMinutes(a) - parseTimeToMinutes(b);
-    });
-
-    if (sortedTimes.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${DAYS_OF_WEEK.length + 1}" class="no-data-cell">No classes scheduled.</td></tr>`;
+    // Check if there are any classes scheduled at all
+    const hasClasses = Object.values(state.timetable).some(dayClasses => dayClasses.length > 0);
+    if (!hasClasses) {
+        if (noDataMessage) noDataMessage.style.display = 'block';
         return;
     }
+    
+    if (noDataMessage) noDataMessage.style.display = 'none';
 
-    sortedTimes.forEach(time => {
+    // Create a set of all unique hours used across all days
+    const uniqueHours = new Set();
+    Object.values(state.timetable).forEach(dayClasses => {
+        dayClasses.forEach(cls => {
+            const h = parseInt(cls.time.match(/(\d+):/)[1]);
+            uniqueHours.add(h);
+        });
+    });
+    
+    // Use a fixed hour slot list for consistent grid (8 AM to 5 PM)
+    const hours = HOUR_SLOTS.filter(h => h >= 8 && h <= 17);
+
+    // Header Row (Days)
+    const headerRow = document.createElement('tr');
+    headerRow.innerHTML = '<th>Time Slot</th>' + DAYS_OF_WEEK.map(day => `<th>${day}</th>`).join('');
+    tbody.appendChild(headerRow);
+
+
+    hours.forEach(hour => {
+        const timeSlot12Hr = convertTo12Hour(`${hour}:00`);
         const tr = document.createElement('tr');
-        tr.innerHTML = `<th>${time}</th>`;
         
+        // Time Slot Cell
+        const timeCell = document.createElement('td');
+        timeCell.className = 'time-slot';
+        timeCell.textContent = timeSlot12Hr;
+        tr.appendChild(timeCell);
+        
+        // Day Cells
         DAYS_OF_WEEK.forEach(day => {
-            const cls = timeSlots[time][day];
             const dayCell = document.createElement('td');
-            dayCell.className = 'timetable-cell';
+            dayCell.className = 'class-cell';
             
-            if (cls) {
-                dayCell.classList.add('has-class');
-                dayCell.innerHTML = `
-                    <div class="class-info">
-                        <strong>${cls.code}</strong>
-                        <small>${cls.subject}</small>
-                        <button class="btn btn-danger btn-small remove-class-btn" 
-                                data-day="${day}" 
-                                data-time="${cls.time}">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                `;
-            } else {
-                dayCell.innerHTML = '';
-            }
+            const dayClasses = state.timetable[day] || [];
+            
+            dayClasses.forEach(cls => {
+                // Check if this class falls within this hour slot
+                const classHour = parseInt(cls.time.match(/(\d+)/)[1]);
+                const classMeridiem = cls.time.match(/(AM|PM)/i)[1];
+                let h24 = classHour;
+                if (classMeridiem === 'PM' && h24 !== 12) h24 += 12;
+                if (classMeridiem === 'AM' && h24 === 12) h24 = 0; // Midnight edge case
+
+                if (h24 === hour) {
+                    const classDiv = document.createElement('div');
+                    classDiv.className = 'timetable-class';
+                    classDiv.innerHTML = `<strong>${cls.code}</strong><br>${cls.subject}<br><small>${cls.time}</small>`;
+                    
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'delete-class-btn';
+                    deleteBtn.innerHTML = '<i class="fas fa-times"></i>';
+                    deleteBtn.setAttribute('data-day', day);
+                    deleteBtn.setAttribute('data-time', cls.time);
+                    deleteBtn.addEventListener('click', removeClass);
+
+                    classDiv.appendChild(deleteBtn);
+                    dayCell.appendChild(classDiv);
+                }
+            });
             
             tr.appendChild(dayCell);
         });
+        
         tbody.appendChild(tr);
-    });
-    
-    tbody.querySelectorAll('.remove-class-btn').forEach(btn => {
-        btn.addEventListener('click', removeClass);
     });
 }
 
 function handleAddClass(e) {
     e.preventDefault();
+    
     const code = document.getElementById('class-code').value.trim().toUpperCase();
     const subject = document.getElementById('class-subject').value.trim();
     const day = document.getElementById('class-day').value;
     const time24 = document.getElementById('class-time').value;
-    
+
     if (!code || !subject || !day || !time24) return alert("Please fill all class fields.");
 
     const time12 = convertTo12Hour(time24);
@@ -1454,96 +1462,100 @@ function handleAddClass(e) {
     if (!state.timetable[day]) {
         state.timetable[day] = [];
     }
-    
-    // Check for existing class at the same time slot
-    const existingIndex = state.timetable[day].findIndex(cls => cls.time === time12);
-    
-    if (existingIndex !== -1) {
-        if (!confirm(`A class (${state.timetable[day][existingIndex].code}) is already scheduled for ${time12} on ${day}. Do you want to replace it?`)) {
-            return;
-        }
-        state.timetable[day].splice(existingIndex, 1, newClass); // Replace existing
-        alert(`Class updated: ${code} on ${day} at ${time12}`);
-    } else {
-        state.timetable[day].push(newClass);
-        alert(`Class added: ${code} on ${day} at ${time12}`);
+
+    // Conflict Check (Only checks hour, good enough for simple timetable)
+    const h = parseInt(time24.split(':')[0]); 
+
+    const existingClass = state.timetable[day].find(cls => {
+        const timeParts = cls.time.match(/(\d+):(\d+) (AM|PM)/);
+        if (!timeParts) return false;
+        
+        let existingH = parseInt(timeParts[1]);
+        const meridiem = timeParts[3];
+        
+        if (meridiem === 'PM' && existingH !== 12) existingH += 12;
+        if (meridiem === 'AM' && existingH === 12) existingH = 0;
+        
+        return existingH === h;
+    });
+
+    if (existingClass) {
+        return alert(`Time conflict! ${existingClass.code} is already scheduled at ${existingClass.time} on ${day}.`);
     }
 
-    // Sort classes by time
+    state.timetable[day].push(newClass);
+    // Sort classes for the day by time (necessary for accurate upcoming class check)
     state.timetable[day].sort((a, b) => {
         return parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time);
     });
 
-    saveState();
+    e.target.reset(); 
     renderTimetable();
-    renderOverview();
-    
-    // Clear form
-    document.getElementById('add-class-form').reset();
+    renderOverview(); // Update upcoming class display
+    saveState();
 }
 
 function removeClass(e) {
     const day = e.currentTarget.getAttribute('data-day');
     const time = e.currentTarget.getAttribute('data-time');
-    
-    if (state.timetable[day]) {
-        const initialLength = state.timetable[day].length;
-        state.timetable[day] = state.timetable[day].filter(cls => cls.time !== time);
-        
-        if (state.timetable[day].length < initialLength) {
+
+    if (confirm(`Remove class on ${day} at ${time}?`)) {
+        if (state.timetable[day]) {
+            state.timetable[day] = state.timetable[day].filter(cls => cls.time !== time);
+            
+            // Clean up empty day array
+            if (state.timetable[day].length === 0) {
+                delete state.timetable[day];
+            }
+            
             saveState();
             renderTimetable();
             renderOverview();
-            alert(`Class removed from ${day} at ${time}.`);
         }
     }
 }
 
+
 // --- NOTES SECTION ---
 
 function initializeQuill() {
-    const editorContainer = document.getElementById('note-editor-container');
-    if (editorContainer && !quill) {
-        quill = new Quill(editorContainer, {
+    const editor = document.getElementById('note-editor');
+    if (editor && !quill) {
+        quill = new Quill('#note-editor', {
             theme: 'snow',
-            placeholder: 'Start writing your lecture notes here...',
             modules: {
                 toolbar: [
                     [{ 'header': [1, 2, 3, false] }],
                     ['bold', 'italic', 'underline', 'strike'],
                     [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                    [{ 'script': 'sub'}, { 'script': 'super' }],
-                    [{ 'indent': '-1'}, { 'indent': '+1' }],
                     [{ 'color': [] }, { 'background': [] }],
-                    ['link', 'blockquote', 'code-block'],
                     ['clean']
                 ]
-            }
+            },
+            placeholder: 'Start writing your note here...'
         });
-        console.log('✅ Quill editor initialized.');
-    } else if (quill) {
-        console.log('⚠️ Quill editor already initialized.');
     }
 }
 
-function openNoteEditor(noteId = null) {
+
+const openNoteEditor = (noteId = null) => {
+    const noteTitleInput = document.getElementById('note-title-input');
+    const noteEditorModal = document.getElementById('note-editor-modal');
+    const deleteNoteBtn = document.getElementById('delete-note-btn');
+
     if (!quill) {
         console.error('Quill editor not initialized:', quill);
         alert("The note editor failed to load. Please refresh the page and try again.");
         return;
     }
-    
-    const noteEditorModal = document.getElementById('note-editor-modal');
-    const noteTitleInput = document.getElementById('note-title-input'); // FIX: updated ID from note-title-input
-    const deleteNoteBtn = document.getElementById('delete-note-btn');
 
     if (!noteEditorModal || !noteTitleInput) {
         console.error('Modal elements not found');
         return;
     }
-
+    
     noteEditorModal.style.display = 'block';
-    currentEditingNoteId = noteId;
+    currentEditingNoteId = noteId; 
 
     // Clear editor content safely
     try {
@@ -1552,14 +1564,13 @@ function openNoteEditor(noteId = null) {
     } catch (error) {
         console.error('Error clearing editor:', error);
     }
-    
-    if (deleteNoteBtn) deleteNoteBtn.style.display = 'none';
 
+    const editorTitle = document.getElementById('editor-title');
+    
     if (noteId) {
         const note = state.notes.find(n => n.id === noteId);
         if (note) {
-            const editorTitle = document.getElementById('editor-title');
-            if (editorTitle) editorTitle.textContent = 'Edit Note';
+            if (editorTitle) editorTitle.textContent = 'Edit';
             noteTitleInput.value = note.title;
             try {
                 quill.root.innerHTML = note.content;
@@ -1568,104 +1579,132 @@ function openNoteEditor(noteId = null) {
             }
             if (deleteNoteBtn) deleteNoteBtn.style.display = 'inline-flex';
         } else {
-            const editorTitle = document.getElementById('editor-title');
-            if (editorTitle) editorTitle.textContent = 'Create Note';
+            if (editorTitle) editorTitle.textContent = 'Create';
+            if (deleteNoteBtn) deleteNoteBtn.style.display = 'none';
+            currentEditingNoteId = null;
         }
     } else {
-        const editorTitle = document.getElementById('editor-title');
-        if (editorTitle) editorTitle.textContent = 'Create Note';
+        if (editorTitle) editorTitle.textContent = 'Create';
+        if (deleteNoteBtn) deleteNoteBtn.style.display = 'none';
+        currentEditingNoteId = null;
     }
-}
+};
 
-function renderNotesGrid() {
-    const notesContainer = document.getElementById('notes-grid');
-    if (!notesContainer) return;
+const saveNote = () => {
+    const noteTitleInput = document.getElementById('note-title-input');
+    const noteEditorModal = document.getElementById('note-editor-modal');
     
-    notesContainer.innerHTML = '';
-    notesContainer.className = 'notes-grid'; // Ensure correct class
+    if (!quill || !noteTitleInput || !noteEditorModal) return;
+
+    const title = noteTitleInput.value.trim();
+    const content = quill.root.innerHTML.trim();
     
-    if (state.notes.length === 0) {
-        notesContainer.innerHTML = '<p class="no-data">No notes created yet. Click "Create New Note" to begin!</p>';
+    if (title === '' || quill.getText().trim() === '') {
+        alert("Note title and content cannot be empty.");
         return;
     }
     
-    state.notes.sort((a, b) => new Date(b.date) - new Date(a.date)); // Sort by newest first
-    
-    state.notes.forEach(note => {
-        const card = document.createElement('div');
-        card.className = 'note-card';
-        card.setAttribute('data-id', note.id);
-        
-        // Strip HTML for a snippet preview
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = note.content;
-        const snippet = tempDiv.textContent.length > 100 
-            ? tempDiv.textContent.substring(0, 100).trim() + '...' 
-            : tempDiv.textContent;
-        
-        card.innerHTML = `
-            <h3>${note.title}</h3>
-            <p class="snippet">${snippet || 'No content preview.'}</p>
-            <small>Last edited: ${note.date}</small>
-            <button class="btn btn-primary btn-small view-note-btn"><i class="fas fa-eye"></i> View</button>
-        `;
-        
-        card.querySelector('.view-note-btn').addEventListener('click', () => {
-            openNoteEditor(note.id);
-        });
+    const now = new Date();
+    const dateString = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
-        notesContainer.appendChild(card);
-    });
-}
-
-function handleSaveNote() {
-    if (!quill) return;
-    
-    const title = document.getElementById('note-title-input').value.trim(); // FIX: updated ID from note-title-input
-    const content = quill.root.innerHTML;
-    
-    if (!title || content.trim() === '') {
-        alert("Please provide a title and note content.");
-        return;
-    }
-    
-    const newNote = {
-        id: currentEditingNoteId || Date.now().toString(),
-        title: title,
-        content: content,
-        date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-    };
-    
     if (currentEditingNoteId) {
         // Update existing note
         const index = state.notes.findIndex(n => n.id === currentEditingNoteId);
         if (index !== -1) {
-            state.notes[index] = newNote;
+            state.notes[index] = {
+                ...state.notes[index], // Preserve original date/id
+                title: title,
+                content: content,
+                updated: now.toISOString() // Track update time
+            };
         }
-        alert(`Note "${newNote.title}" updated.`);
     } else {
-        // Save new note
+        // Create new note
+        const newNote = {
+            id: Date.now().toString(),
+            title: title,
+            content: content,
+            date: dateString,
+            updated: now.toISOString()
+        };
         state.notes.push(newNote);
-        alert(`Note "${newNote.title}" saved.`);
     }
     
-    currentEditingNoteId = null;
     saveState();
     renderNotesGrid();
+    renderOverview(); // Update recent notes on dashboard
     closeModal('note-editor-modal');
-}
+    currentEditingNoteId = null;
+    alert(`✅ Note "${title}" saved!`);
+};
 
-function handleDeleteNote() {
+function deleteNote() {
     if (!currentEditingNoteId) return;
-    
-    if (confirm(`Are you sure you want to delete the note "${document.getElementById('note-title-input').value.trim()}"?`)) { // FIX: updated ID from note-title-input
+
+    const note = state.notes.find(n => n.id === currentEditingNoteId);
+
+    if (confirm(`Are you sure you want to delete the note: "${note.title}"? This cannot be undone.`)) {
         state.notes = state.notes.filter(n => n.id !== currentEditingNoteId);
         saveState();
         renderNotesGrid();
+        renderOverview(); // Update recent notes
         closeModal('note-editor-modal');
         currentEditingNoteId = null;
-        alert("Note deleted successfully.");
+        alert("Note deleted.");
     }
+}
+
+function renderNotesGrid() {
+    const grid = document.getElementById('notes-grid');
+    if (!grid) return;
+
+    grid.innerHTML = '';
+    
+    if (state.notes.length === 0) {
+        grid.innerHTML = '<p class="no-data">Click "New Note" to start organizing your study materials.</p>';
+        return;
+    }
+    
+    // Sort by most recently updated/created
+    const sortedNotes = [...state.notes].sort((a, b) => {
+        const dateA = new Date(a.updated || a.id);
+        const dateB = new Date(b.updated || b.id);
+        return dateB - dateA;
+    });
+
+
+    sortedNotes.forEach(note => {
+        const card = document.createElement('div');
+        card.className = 'note-card';
+        card.setAttribute('data-id', note.id);
+
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = note.content;
+        const snippet = tempDiv.textContent.substring(0, 150).trim() + '...';
+
+        card.innerHTML = `
+            <h3>${note.title}</h3>
+            <div class="note-snippet">${snippet}</div>
+            <p class="note-date"><i class="fas fa-calendar-alt"></i> ${note.date}</p>
+            <div class="note-actions">
+                <button class="btn btn-primary btn-small edit-note-btn"><i class="fas fa-edit"></i> Edit</button>
+                <button class="btn btn-danger btn-small delete-note-grid-btn" data-id="${note.id}"><i class="fas fa-trash"></i></button>
+            </div>
+        `;
+
+        card.querySelector('.edit-note-btn').addEventListener('click', () => {
+            openNoteEditor(note.id);
+        });
+        
+        // Listener for the delete button on the card (to allow quick deletion)
+        card.querySelector('.delete-note-grid-btn').addEventListener('click', (e) => {
+            e.stopPropagation(); // Stop click from propagating to card
+            currentEditingNoteId = note.id; // Set ID for deleteNote function
+            deleteNote();
+        });
+
+        grid.appendChild(card);
+    });
 }
 
 
@@ -1674,21 +1713,19 @@ function handleDeleteNote() {
 function renderExamList() {
     const container = document.getElementById('exam-list-container');
     if (!container) return;
-    
+
     container.innerHTML = '';
-    
+
     const now = new Date();
-    
-    // Process and sort exams (future exams first, nearest date)
-    const processedExams = state.exams.map(exam => {
-        const examDateObj = new Date(exam.date + "T00:00:00");
-        const diffTime = examDateObj - now;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return { ...exam, examDateObj, diffDays };
-    });
-    
-    const sortedExams = processedExams.filter(exam => exam.diffDays >= 0)
-        .sort((a, b) => a.examDateObj - b.examDateObj);
+    now.setHours(0, 0, 0, 0); // Normalize 'now' to start of day
+
+    const examsWithDates = state.exams.map(exam => ({
+        ...exam,
+        dateObj: new Date(exam.date + "T00:00:00")
+    }));
+
+    const upcomingExams = examsWithDates.filter(exam => exam.dateObj >= now);
+    const sortedExams = upcomingExams.sort((a, b) => a.dateObj - b.dateObj);
 
     if (sortedExams.length === 0) {
         container.innerHTML = '<p class="no-data">No upcoming exams scheduled. Focus Mode awaits!</p>';
@@ -1696,144 +1733,114 @@ function renderExamList() {
     }
 
     sortedExams.forEach(exam => {
+        const diffTime = Math.abs(exam.dateObj - now);
+        let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        // Handle exact day comparison for '0 Days'
+        if (exam.dateObj.toDateString() === now.toDateString()) diffDays = 0; 
+        
         const card = document.createElement('div');
         card.className = 'exam-card exam-item';
-        
-        let daysDisplay;
-        if (exam.diffDays === 0) {
-            daysDisplay = 'TODAY!';
-        } else if (exam.diffDays === 1) {
-            daysDisplay = 'TOMORROW!';
-        } else {
-            daysDisplay = `${exam.diffDays} <small>Days</small>`;
-        }
-        
         card.innerHTML = `
             <h3>${exam.name}</h3>
-            <p class="exam-date-display"><i class="fas fa-calendar-alt"></i> ${exam.examDateObj.toDateString()}</p>
-            <div class="countdown-display">${daysDisplay}</div>
+            <p class="exam-date-display"><i class="fas fa-calendar-alt"></i> ${exam.dateObj.toDateString()}</p>
+            <div class="countdown-display">${diffDays} <small>Days</small></div>
             <button class="btn btn-danger btn-small remove-exam-btn" data-id="${exam.id}"><i class="fas fa-trash"></i></button>
         `;
         container.appendChild(card);
     });
 
     container.querySelectorAll('.remove-exam-btn').forEach(btn => btn.addEventListener('click', removeExam));
-    
-    // Update overview after rendering list
-    renderOverview(); 
 }
 
 function handleAddExam(e) {
     e.preventDefault();
+    
     const nameInput = document.getElementById('exam-name');
     const dateInput = document.getElementById('exam-date');
-    
+    if (!nameInput || !dateInput) return;
+
     const name = nameInput.value.trim();
-    const date = dateInput.value; // YYYY-MM-DD format
+    const dateStr = dateInput.value;
+    const date = new Date(dateStr + "T00:00:00");
+    const today = new Date();
+    today.setHours(0,0,0,0);
 
-    if (!name || !date) return alert("Please fill both exam name and date.");
-
-    const newExam = {
-        id: Date.now().toString(),
-        name: name,
-        date: date
-    };
-
-    // Simple date validation
-    const examDate = new Date(date + "T00:00:00");
-    if (isNaN(examDate.getTime())) {
-        alert("Invalid date entered.");
-        return;
+    if (!name || !dateStr || date < today) {
+        return alert("Please enter a valid exam name and a future or current date.");
     }
-
-    state.exams.push(newExam);
-    saveState();
-    renderExamList();
     
-    // Clear form and provide feedback
-    nameInput.value = '';
-    dateInput.value = '';
-    alert(`Exam "${name}" scheduled for ${date}!`);
+    state.exams.push({
+        id: Date.now().toString(), // Use string ID for consistency
+        name: name,
+        date: dateStr,
+    });
+
+    e.target.reset(); 
+    renderExamList();
+    renderOverview(); // Update overview days-to-exam
+    saveState();
 }
 
 function removeExam(e) {
     const id = e.currentTarget.getAttribute('data-id');
-    state.exams = state.exams.filter(exam => exam.id !== id);
-    saveState();
-    renderExamList();
-    alert("Exam removed.");
-}
-
-function toggleFocusMode() {
-    state.isFocusMode = !state.isFocusMode;
-    saveState();
-
-    const body = document.body;
-    const toggleButton = document.getElementById('focus-mode-toggle');
-    
-    if (state.isFocusMode) {
-        body.classList.add('focus-mode-active');
-        if (toggleButton) {
-            toggleButton.innerHTML = '<i class="fas fa-undo"></i> Exit Focus Mode';
-        }
-        
-        // Force switch to Exam Countdown view
-        switchSection('countdown'); 
-        alert("Focus Mode Activated! Sidebar navigation is restricted to Exam Countdown.");
-    } else {
-        body.classList.remove('focus-mode-active');
-        if (toggleButton) {
-            toggleButton.innerHTML = '<i class="fas fa-brain"></i> Toggle Focus Mode';
-        }
-        alert("Focus Mode Deactivated. Full dashboard access restored.");
+    if (confirm("Are you sure you want to remove this exam?")) {
+        state.exams = state.exams.filter(exam => exam.id !== id);
+        saveState();
+        renderExamList();
+        renderOverview();
+        alert("Exam removed.");
     }
 }
 
-// --- PROFILE SECTION ---
 
-function renderProfile() {
-    // The profile section uses different IDs in the new HTML,
-    // so we need to target the new IDs for rendering the state.
-    const profileNameInput = document.getElementById('full-name');
-    const profileStudentIdInput = document.getElementById('student-id');
-    const profileMajorInput = document.getElementById('major');
-    const profileEmailInput = document.getElementById('email');
-    const profileSemesterInput = document.getElementById('current-semester');
+// --- PROFILE ---
 
-    if (profileNameInput) profileNameInput.value = state.userName;
-    if (profileStudentIdInput) profileStudentIdInput.value = state.studentId;
-    if (profileMajorInput) profileMajorInput.value = state.major;
-    if (profileEmailInput) profileEmailInput.value = state.email;
-    if (profileSemesterInput) profileSemesterInput.value = state.currentSemester;
+function loadProfileData() {
+    const profileForm = document.getElementById('profile-update-form');
+    if (!profileForm) return;
+
+    document.getElementById('full-name').value = state.userName;
+    document.getElementById('major').value = state.major;
+    document.getElementById('current-semester').value = state.currentSemester;
+    
+    // Display read-only values
+    document.getElementById('student-id').value = state.studentId;
+    document.getElementById('email').value = state.email;
+
+    // Display values in info card
+    document.getElementById('profile-email-display').textContent = state.email;
+    document.getElementById('profile-major-display').textContent = state.major;
+    document.getElementById('profile-semester-display').textContent = state.currentSemester;
+    
+    // Update all user name displays
+    updateUserNameDisplay(state.userName);
 }
 
 function handleProfileUpdate(event) {
     event.preventDefault();
     
-    // Corrected IDs for form fields
-    const profileNameInput = document.getElementById('full-name');
-    const profileStudentIdInput = document.getElementById('student-id');
-    const profileMajorInput = document.getElementById('major');
-    const profileEmailInput = document.getElementById('email');
-    const profileSemesterInput = document.getElementById('current-semester');
+    const newName = document.getElementById('full-name').value.trim();
+    const newMajor = document.getElementById('major').value.trim();
+    const newSemester = parseInt(document.getElementById('current-semester').value);
+    const newStudentId = document.getElementById('student-id').value.trim();
+    const newEmail = document.getElementById('email').value.trim();
 
-    // Retrieve values
-    const newProfileName = profileNameInput ? profileNameInput.value.trim() : state.userName;
-    const newStudentId = profileStudentIdInput ? profileStudentIdInput.value.trim() : state.studentId;
-    const newMajor = profileMajorInput ? profileMajorInput.value.trim() : state.major;
-    const newEmail = profileEmailInput ? profileEmailInput.value.trim() : state.email;
-    const newSemester = profileSemesterInput ? parseInt(profileSemesterInput.value) : state.currentSemester;
-
-    
-    if (newProfileName !== state.userName) {
-        updateUserNameDisplay(newProfileName); // This also saves the state
+    if (!newName || !newMajor || isNaN(newSemester) || newSemester < 1) {
+        return alert("Please ensure Name, Major, and Semester are valid.");
     }
 
+    if (newName !== state.userName) {
+        updateUserNameDisplay(newName);
+    }
+    
     state.major = newMajor;
     state.currentSemester = newSemester;
     state.studentId = newStudentId;
     state.email = newEmail;
-    saveState(); 
+
+    saveState();
+    loadProfileData(); // Reload to update all displays
 
     // Visual feedback
     const saveButton = event.target.querySelector('.btn-accent');
@@ -1851,19 +1858,27 @@ function handleProfileUpdate(event) {
 }
 
 function handleLogout() {
-    if (confirm("Are you sure you want to log out? This will clear your dashboard data (if not using PWA storage).")) {
-        // Clear IndexedDB state (for complete reset)
-        const tx = db.transaction('state', 'readwrite');
-        const store = tx.objectStore('state');
-        store.clear(); 
-        
-        // Reload to force re-initialization
-        window.location.reload(); 
+    if (confirm("Are you sure you want to log out? All local data will be reset.")) {
+        localStorage.removeItem('uniportalState');
+        localStorage.removeItem('userAvatarDataURL');
+        alert("Logged out successfully! The dashboard will reset.");
+        window.location.reload();
     }
 }
 
-// --- INITIALIZATION ---
+function handleResetData() {
+    if (confirm("WARNING: Are you sure you want to PERMANENTLY reset ALL your dashboard data? This action cannot be undone.")) {
+        localStorage.removeItem('uniportalState');
+        localStorage.removeItem('userAvatarDataURL');
+        localStorage.removeItem('lastDailySummary');
+        sessionStorage.clear(); // Clear session-based notifications
+        alert("Data successfully reset! Reloading UniPortal.");
+        window.location.reload();
+    }
+}
 
+
+// --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', () => {
     
     // Avatar Upload
@@ -1871,223 +1886,243 @@ document.addEventListener('DOMContentLoaded', () => {
     const profileInput = document.getElementById('avatar-input-profile');
     const navImage = document.getElementById('user-avatar-nav');
     const profileImage = document.getElementById('profile-avatar-img');
-    const AVATAR_STORAGE_KEY = 'userAvatarDataURL'; // Keep in localStorage for simplicity
+    const AVATAR_STORAGE_KEY = 'userAvatarDataURL';
 
-    const updateAndPersistAvatar = (input, imgElement) => {
-        if (!input || !imgElement) return;
-        input.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    const dataURL = event.target.result;
-                    imgElement.src = dataURL;
-                    // Update both avatars
-                    if (navImage) navImage.src = dataURL;
-                    if (profileImage) profileImage.src = dataURL;
-                    // Persist to localStorage
-                    localStorage.setItem(AVATAR_STORAGE_KEY, dataURL);
-                    alert("Avatar updated successfully!");
-                };
-                reader.readAsDataURL(file);
+    const updateAndPersistAvatar = (file) => {
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const dataURL = e.target.result;
+                if (navImage) navImage.src = dataURL;
+                if (profileImage) profileImage.src = dataURL;
+                localStorage.setItem(AVATAR_STORAGE_KEY, dataURL);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleAvatarChange = (e) => {
+        const file = e.target.files[0];
+        updateAndPersistAvatar(file);
+    };
+
+    if (navInput) navInput.addEventListener('change', handleAvatarChange);
+    if (profileInput) profileInput.addEventListener('change', handleAvatarChange);
+
+    // Load persisted avatar
+    const storedAvatar = localStorage.getItem(AVATAR_STORAGE_KEY);
+    if (storedAvatar) {
+        if (navImage) navImage.src = storedAvatar;
+        if (profileImage) profileImage.src = storedAvatar;
+    }
+
+    // Initialize Quill editor with a slight delay to ensure the DOM is ready for it
+    setTimeout(initializeQuill, 50);
+
+    setupThemeToggle();
+    setupNotificationClear();
+    requestNotificationPermission();
+    scheduleNotificationChecks();
+    
+    // --- MAIN NAVIGATION AND RENDERING ---
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            const targetSection = item.getAttribute('data-section');
+            if (targetSection) {
+                switchSection(targetSection);
             }
         });
-    };
-    
-    // Load persisted avatar
-    const persistedAvatar = localStorage.getItem(AVATAR_STORAGE_KEY);
-    if (persistedAvatar) {
-        if (navImage) navImage.src = persistedAvatar;
-        if (profileImage) profileImage.src = persistedAvatar;
+    });
+
+    // Handle initial load based on saved state
+    switchSection(state.currentSection);
+
+    // GPA Calculator
+    const addCourseBtn = document.getElementById('add-course-btn');
+    if (addCourseBtn) addCourseBtn.addEventListener('click', addCourse);
+    const calcGpaBtn = document.getElementById('calculate-gpa-btn');
+    if (calcGpaBtn) calcGpaBtn.addEventListener('click', handleCalculateGPA);
+    const saveSemBtn = document.getElementById('save-semester-btn');
+    if (saveSemBtn) saveSemBtn.addEventListener('click', handleSaveSemester);
+
+    // CGPA Calculator
+    const cgpaCalcBtn = document.getElementById('calculate-cgpa-btn');
+    if (cgpaCalcBtn) cgpaCalcBtn.addEventListener('click', handleCalculateCGPA);
+    const addManualSemBtn = document.getElementById('add-manual-sem-btn');
+    if (addManualSemBtn) {
+        addManualSemBtn.addEventListener('click', () => openModal('cgpa-manual-modal'));
     }
-    
-    updateAndPersistAvatar(navInput, navImage);
-    updateAndPersistAvatar(profileInput, profileImage);
-    
-    // Load and Initialize App
-    async function initApp() {
-        showLoadingOverlay();
-        await openIndexedDB();
-        await loadStateFromIndexedDB(); // This now calls rendering functions
-        hideLoadingOverlay();
-        initializeQuill(); // Init Quill after all other DOM is ready
+    // FIXED: Attach the manual semester form handler
+    const manualSemesterForm = document.getElementById('cgpa-manual-form');
+    if (manualSemesterForm) {
+        manualSemesterForm.addEventListener('submit', handleManualSemesterAdd);
+    }
 
-        // Setup Listeners
-        document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
-            item.addEventListener('click', (e) => {
-                e.preventDefault();
-                const targetSectionId = item.getAttribute('data-section');
-                window.location.hash = targetSectionId; // Update hash for history/load
-                switchSection(targetSectionId);
-            });
+    // Timetable
+    const addClassForm = document.getElementById('add-class-form');
+    if (addClassForm) addClassForm.addEventListener('submit', handleAddClass);
+
+    // Exams
+    const addExamForm = document.getElementById('add-exam-form');
+    if (addExamForm) addExamForm.addEventListener('submit', handleAddExam);
+    const focusModeToggle = document.getElementById('focus-mode-toggle');
+    if (focusModeToggle) {
+        focusModeToggle.addEventListener('click', () => {
+            alert("Focus Mode Activated: Minimizing distractions... (Placeholder)");
+        });
+    }
+
+    // Profile
+    const profileForm = document.getElementById('profile-update-form');
+    if (profileForm) {
+        loadProfileData();
+        profileForm.addEventListener('submit', handleProfileUpdate);
+    }
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
+
+    // Reset Data Button
+    const resetDataBtn = document.getElementById('reset-data-btn');
+    if (resetDataBtn) resetDataBtn.addEventListener('click', handleResetData);
+
+    // --- FIX #3: Notes Close Button ---
+    const closeNoteEditorBtn = document.getElementById('close-note-editor-btn');
+    if (closeNoteEditorBtn) {
+        closeNoteEditorBtn.addEventListener('click', () => {
+            closeModal('note-editor-modal');
+        });
+    }
+    // --- END FIX #3 ---
+
+    // Notes - with slight delay to ensure Quill is ready
+    const newNoteBtn = document.getElementById('new-note-btn');
+    const saveNoteBtn = document.getElementById('save-note-btn');
+    const deleteNoteBtn = document.getElementById('delete-note-btn');
+    const noteEditorModal = document.getElementById('note-editor-modal');
+    const editorDownloadBtn = document.getElementById('editor-download-btn');
+    const shareNoteBtn = document.getElementById('share-note-btn');
+    const downloadNoteListBtn = document.getElementById('download-note-btn');
+    const closeShareModalBtn = document.getElementById('closeShareModalBtn');
+    const closeDownloadModalBtn = document.getElementById('closeDownloadModalBtn');
+
+
+    if (newNoteBtn) newNoteBtn.addEventListener('click', () => openNoteEditor(null));
+    if (saveNoteBtn) saveNoteBtn.addEventListener('click', saveNote);
+    if (deleteNoteBtn) deleteNoteBtn.addEventListener('click', deleteNote);
+    if (editorDownloadBtn) editorDownloadBtn.addEventListener('click', handleEditorDownload);
+    
+    if (shareNoteBtn) shareNoteBtn.addEventListener('click', () => openModal('shareNotesModal'));
+    if (closeShareModalBtn) closeShareModalBtn.addEventListener('click', () => closeModal('shareNotesModal'));
+    if (downloadNoteListBtn) downloadNoteListBtn.addEventListener('click', () => openDownloadModal('downloadNotesModal'));
+    if (closeDownloadModalBtn) closeDownloadModalBtn.addEventListener('click', () => closeModal('downloadNotesModal'));
+    
+    // --- Initial Load Setup ---
+    renderNotifications();
+    
+    // Hide loading overlay after content is rendered
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const mainAppContainer = document.getElementById('main-app-container');
+    const body = document.body;
+
+    if (loadingOverlay && mainAppContainer) {
+        body.classList.add('no-scroll');
+        setTimeout(() => {
+            loadingOverlay.classList.add('hidden');
+            mainAppContainer.classList.remove('main-content-hidden');
+            mainAppContainer.classList.add('main-content-visible');
+            setTimeout(() => {
+                body.classList.remove('no-scroll');
+            }, 600);
+        }, 500); // Reduce delay for snappier feel
+    }
+
+    // --- FIX #1: Mobile Hamburger Menu - FIXED VERSION ---
+    const createMobileMenu = () => {
+        // Check if already exists
+        if (document.getElementById('mobile-menu-toggle')) return;
+
+        const hamburger = document.createElement('button');
+        hamburger.id = 'mobile-menu-toggle';
+        hamburger.innerHTML = '<i class="fas fa-bars"></i>';
+        hamburger.setAttribute('aria-label', 'Toggle Menu');
+        document.body.appendChild(hamburger);
+
+        const sidebar = document.querySelector('.sidebar');
+
+        // Show/hide based on screen size
+        const toggleMenuVisibility = () => {
+            if (window.innerWidth <= 768) {
+                hamburger.style.display = 'block';
+            } else {
+                hamburger.style.display = 'none';
+                // Ensure sidebar is closed when resizing to desktop
+                sidebar.classList.remove('mobile-open'); 
+            }
+        };
+        
+        toggleMenuVisibility(); 
+
+        // Toggle sidebar on click <--- THE FIX IS HERE
+        hamburger.addEventListener('click', () => {
+            sidebar.classList.toggle('mobile-open');
         });
 
-        // Add event listener for hash changes (e.g., browser back/forward)
-        window.addEventListener('hashchange', () => {
-            switchSection(getCurrentSectionHash());
-        });
-
-        setupThemeToggle();
-        setupNotificationListeners();
-        
-        // Notes Section Listeners
-        const newNoteBtn = document.getElementById('new-note-btn');
-        if (newNoteBtn) newNoteBtn.addEventListener('click', () => openNoteEditor(null));
-        const saveNoteBtn = document.getElementById('save-note-btn');
-        if (saveNoteBtn) saveNoteBtn.addEventListener('click', handleSaveNote);
-        const deleteNoteBtn = document.getElementById('delete-note-btn');
-        if (deleteNoteBtn) deleteNoteBtn.addEventListener('click', handleDeleteNote);
-        
-        // Note Editor Download button
-        const downloadEditorBtn = document.getElementById('downloadNoteEditorBtn');
-        if (downloadEditorBtn) {
-            downloadEditorBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                // The user's HTML doesn't specify format, I'll default to TXT.
-                downloadCurrentNoteFromEditor('txt');
-            });
-        }
-        setupShareGlobalModal();
-        setupDownloadGlobalModal();
-
-        // GPA Calculator
-        const addCourseBtn = document.getElementById('add-course-btn');
-        if (addCourseBtn) addCourseBtn.addEventListener('click', handleAddCourse);
-        const calcGpaBtn = document.getElementById('calculate-gpa-btn');
-        if (calcGpaBtn) calcGpaBtn.addEventListener('click', handleCalculateGPA);
-        const saveSemBtn = document.getElementById('save-semester-btn');
-        if (saveSemBtn) saveSemBtn.addEventListener('click', handleSaveSemester);
-        
-        // CGPA Calculator
-        const addManualSemBtn = document.getElementById('add-manual-sem-btn');
-        if (addManualSemBtn) {
-            addManualSemBtn.addEventListener('click', () => openModal('cgpa-manual-modal'));
-        }
-        const manualSemesterForm = document.getElementById('cgpa-manual-form');
-        if (manualSemesterForm) {
-            manualSemesterForm.addEventListener('submit', handleManualSemesterAdd);
-        }
-        
-        // Timetable
-        const addClassForm = document.getElementById('add-class-form');
-        if (addClassForm) addClassForm.addEventListener('submit', handleAddClass);
-        
-        // Exams
-        const addExamForm = document.getElementById('add-exam-form');
-        if (addExamForm) addExamForm.addEventListener('submit', handleAddExam);
-        const focusModeToggle = document.getElementById('focus-mode-toggle');
-        if (focusModeToggle) {
-            focusModeToggle.addEventListener('click', toggleFocusMode);
-        }
-        
-        // Profile
-        const profileForm = document.getElementById('profile-update-form');
-        if (profileForm) profileForm.addEventListener('submit', handleProfileUpdate);
-        
-        // Run initial notification checks (will schedule interval)
-        scheduleNotificationChecks(); 
-        
-        // Data Backup/Restore (if implemented)
-        const exportBtn = document.getElementById('export-data-btn');
-        const importInput = document.getElementById('import-file-input');
-
-        if (exportBtn) {
-            exportBtn.addEventListener('click', exportData);
-        }
-
-        if (importInput) {
-            importInput.addEventListener('change', (e) => {
-                if (e.target.files[0]) {
-                    importData(e.target.files[0]);
+        // Also close the sidebar when a link inside is clicked
+        sidebar.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                if (window.innerWidth <= 768) {
+                    sidebar.classList.remove('mobile-open');
                 }
             });
-        }
-        
-        // Set initial state of focus mode button
-        if (state.isFocusMode && focusModeToggle) {
-            focusModeToggle.innerHTML = '<i class="fas fa-undo"></i> Exit Focus Mode';
-        }
-        
-        // Check for any initial query parameter or hash and switch to it
-        switchSection(getCurrentSectionHash());
-        
-        // Ensure initial rendering of the current section
-        const initialSection = getCurrentSectionHash();
-        if (initialSection === 'gpa-calc') renderGPATable();
-        if (initialSection === 'cgpa-calc') renderCGPAHistory();
-        if (initialSection === 'timetable') renderTimetable();
-        if (initialSection === 'notes') renderNotesGrid();
-        if (initialSection === 'countdown') renderExamList();
-        if (initialSection === 'profile') renderProfile();
-        
-        // Start the overview/exam/timetable refresh loop
-        setInterval(renderOverview, 60000); // Update overview every minute
-
-    }
-
-    // Modal functions
-    window.openModal = (modalId) => {
-        document.getElementById(modalId).style.display = 'block';
-    };
-
-    window.closeModal = (modalId) => {
-        document.getElementById(modalId).style.display = 'none';
-    };
-
-    document.querySelectorAll('.modal .close-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const modalId = e.target.getAttribute('data-modal-id');
-            closeModal(modalId);
         });
-    });
-    
-    // Function to handle the loading screen
-    function showLoadingOverlay() {
-        const loadingOverlay = document.getElementById('loading-overlay');
-        const mainAppContainer = document.getElementById('main-app-container');
-        const body = document.body;
-        if (loadingOverlay && mainAppContainer) {
-            loadingOverlay.classList.remove('hidden');
-            mainAppContainer.classList.add('main-content-hidden');
-            body.classList.add('no-scroll');
-        }
-    }
-    
-    function hideLoadingOverlay() {
-        const loadingOverlay = document.getElementById('loading-overlay');
-        const mainAppContainer = document.getElementById('main-app-container');
-        const body = document.body;
-        
-        if (loadingOverlay && mainAppContainer) {
-            // Delay hiding the overlay to give all elements time to render
-            setTimeout(() => {
-                loadingOverlay.classList.add('hidden');
-                mainAppContainer.classList.remove('main-content-hidden');
-                mainAppContainer.classList.add('main-content-visible');
-                setTimeout(() => {
-                    body.classList.remove('no-scroll');
-                }, 600);
-            }, 500); // Shorter delay after IndexedDB success
-        }
-    }
-    
-    // Start the application
-    initApp();
+
+        window.addEventListener('resize', toggleMenuVisibility);
+    };
+
+    createMobileMenu();
+    // --- END FIX #1 ---
+
+    /* Test Notification Buttons
+    const testButtonsContainer = document.createElement('div');
+    testButtonsContainer.innerHTML = `<button id="test-notif-btn" style="position:fixed; bottom: 70px; right: 20px; z-index: 10000; background: red; color: white; padding: 10px;">Test Notif</button>`;
+    document.body.appendChild(testButtonsContainer);
+    document.getElementById('test-notif-btn').addEventListener('click', testNotification);
+
+    // Remove test buttons after 30 seconds (or remove this block entirely after testing)
+    setTimeout(() => {
+        testButtonsContainer.remove();
+    }, 30000);*/
 });
+    const exportBtn = document.getElementById('export-data-btn');
+const importInput = document.getElementById('import-file-input');
+
+
+if (exportBtn) {
+    exportBtn.addEventListener('click', exportData);
+}
+
+if (importInput) {
+    importInput.addEventListener('change', (e) => {
+        if (e.target.files[0]) {
+            importData(e.target.files[0]);
+        }
+    });
+}
 
 
 // Add Export/Import functionality for backup
 function exportData() {
     const dataStr = JSON.stringify(state, null, 2);
     const dataBlob = new Blob([dataStr], { 
-        type: 'application/json' });
+
+type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.href = url;
     link.download = `UniPortal_Backup_${new Date().toISOString().split('T')[0]}.json`;
     link.click();
     URL.revokeObjectURL(url);
-    alert("✅ Data exported successfully!");
 }
 
 function importData(file) {
@@ -2097,12 +2132,12 @@ function importData(file) {
             const importedState = JSON.parse(e.target.result);
             state = importedState;
             saveState();
-            alert("✅ Data imported successfully! The dashboard will reload.");
             window.location.reload();
+            alert("✅ Data imported successfully! UniPortal is reloading.");
         } catch (error) {
-            console.error("Error importing data:", error);
-            alert("❌ Failed to import data. The file might be corrupted or in an incorrect format.");
+            console.error("Error parsing imported file:", error);
+            alert("❌ Failed to import data. Please ensure the file is a valid UniPortal JSON backup.");
         }
     };
     reader.readAsText(file);
-        }
+}
