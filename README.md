@@ -85,7 +85,7 @@ Splash screen on launch
 Standalone window mode
 Additional Features
 
-Responsive Design
+11.Responsive Design
 Mobile-first approach with adaptive layouts
 Hamburger menu for mobile navigation
 Touch-friendly interface elements
